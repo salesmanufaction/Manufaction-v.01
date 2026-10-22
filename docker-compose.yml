@@ -1,0 +1,118 @@
+# Manufaction v0.1 — cloud stack + virtual factory
+# Only Caddy (80/443) is reachable from the internet. Everything else stays on the
+# private "manufaction" network. The Node-RED editor is bound to 127.0.0.1 on the host.
+
+services:
+
+  postgres:
+    image: postgres:18
+    container_name: manufaction-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: manufaction
+      POSTGRES_USER: manufaction
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      TZ: ${TZ:-America/New_York}
+    volumes:
+      - postgres_data:/var/lib/postgresql          # postgres 18+ layout
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U manufaction -d manufaction"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [manufaction]
+
+  mqtt:
+    image: eclipse-mosquitto:2.0.22
+    container_name: manufaction-mqtt
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/mosquitto/config/entrypoint.sh"]
+    environment:
+      MQTT_NODERED_PASSWORD: ${MQTT_NODERED_PASSWORD:?set MQTT_NODERED_PASSWORD in .env}
+      MQTT_EDGE_PASSWORD: ${MQTT_EDGE_PASSWORD:?set MQTT_EDGE_PASSWORD in .env}
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - mqtt_data:/mosquitto/data
+    networks: [manufaction]
+    # no "ports:" on purpose — 1883 is internal only
+
+  nodered:
+    build: ./nodered
+    image: manufaction/nodered:0.1.0
+    container_name: manufaction-nodered
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-America/New_York}
+      MF_VERSION: "0.1.0"
+      MF_API_TOKEN: ${MF_API_TOKEN:?set MF_API_TOKEN in .env}
+      MF_TELEMETRY_KEEP_DAYS: ${MF_TELEMETRY_KEEP_DAYS:-7}
+      DEMO_ERP_ENABLED: ${DEMO_ERP_ENABLED:-true}
+      NODE_RED_ADMIN_USER: ${NODE_RED_ADMIN_USER:-admin}
+      NODE_RED_ADMIN_HASH: ${NODE_RED_ADMIN_HASH:?set NODE_RED_ADMIN_HASH in .env}
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: manufaction
+      PGUSER: manufaction
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      MQTT_HOST: mqtt
+      MQTT_NODERED_USER: nodered
+      MQTT_NODERED_PASSWORD: ${MQTT_NODERED_PASSWORD}
+    volumes:
+      - ./nodered/data:/data                       # flows.json lives in Git
+    ports:
+      - "127.0.0.1:1880:1880"                      # editor: SSH tunnel only, never public
+    depends_on:
+      postgres: { condition: service_healthy }
+      mqtt: { condition: service_started }
+    networks: [manufaction]
+
+  caddy:
+    image: caddy:2.10.2
+    container_name: manufaction-caddy
+    restart: unless-stopped
+    environment:
+      MF_SITE_ADDRESS: ${MF_SITE_ADDRESS:-localhost}
+      MF_ACME_EMAIL: ${MF_ACME_EMAIL:-admin@example.com}
+      MF_BASIC_USER: ${MF_BASIC_USER:-admin}
+      MF_BASIC_HASH: ${MF_BASIC_HASH:?set MF_BASIC_HASH in .env}
+      MF_API_TOKEN: ${MF_API_TOKEN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/site:/srv:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [nodered]
+    networks: [manufaction]
+
+  # Plays the role of a Manufaction Edge device until real hardware exists.
+  # Stop it with: docker compose stop simulator
+  simulator:
+    build: ./simulator
+    image: manufaction/simulator:0.1.0
+    container_name: manufaction-simulator
+    restart: unless-stopped
+    environment:
+      MQTT_HOST: mqtt
+      MQTT_EDGE_USER: edge
+      MQTT_EDGE_PASSWORD: ${MQTT_EDGE_PASSWORD}
+      SIM_SITE: demo
+      SIM_SPEED: ${SIM_SPEED:-1.0}
+      SIM_FAULT_RATE: ${SIM_FAULT_RATE:-0.02}
+      SIM_SCRAP_RATE: ${SIM_SCRAP_RATE:-0.03}
+    depends_on: [mqtt, nodered]
+    networks: [manufaction]
+
+volumes:
+  postgres_data:
+  mqtt_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  manufaction:
+    driver: bridge
