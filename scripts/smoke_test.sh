@@ -36,9 +36,9 @@ echo
 echo "Waiting 40s for the virtual factory to produce data…"
 sleep 40
 curl -sk -H "$AUTH" "$BASE/api/v1/dashboard" > /tmp/mf_dash.json
-python3 - /tmp/mf_dash.json <<'PY'
+read -r -d '' PYCODE <<'PY'
 import json, sys
-d = json.load(open(sys.argv[1]))
+d = json.load(sys.stdin)
 for key in ("active_alerts", "notifications", "maintenance_requests"):
     if key not in d:
         sys.exit("dashboard is missing '%s' (old database volume? run: docker compose down -v)" % key)
@@ -49,6 +49,10 @@ for a in d["assets"]:
 q = d["quality_today"]
 print("  quality today: %s good / %s scrap" % (q["good"], q["scrap"]))
 PY
+# Use host Python if it really works (the Windows Store stub does not); otherwise the simulator container's.
+if python3 -c 'import sys' >/dev/null 2>&1; then PYRUN=(python3 -c "$PYCODE")
+else PYRUN=(docker compose exec -T simulator python -c "$PYCODE"); fi
+"${PYRUN[@]}" < /tmp/mf_dash.json
 [[ $? -eq 0 ]] || { echo "  FAIL  could not read dashboard"; fail=$((fail+1)); }
 
 echo; echo "$pass passed, $fail failed"
