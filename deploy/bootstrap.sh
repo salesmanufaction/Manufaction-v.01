@@ -56,5 +56,6 @@ cat <<DONE
   Done. Open: https://$SITE   (the certificate can take a minute on first visit)
   Check:     cd $APP_DIR && ./scripts/smoke_test.sh
   Logins were printed above by setup.sh. Save them now.
-  Editor:    ssh -L 1880:127.0.0.1:1880 $USER@<vm-ip>  then http://localhost:1880
+  Core editor (owner): ssh -L 1880:127.0.0.1:1880 $USER@<vm-ip>  then http://localhost:1880
+  Studio editor (customer): https://<site>/studio
 DONE

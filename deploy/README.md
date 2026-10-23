@@ -1,7 +1,7 @@
 # Deploying Manufaction to a VM
 
 The stack is the same Docker Compose file used on a laptop. Only Caddy (80/443) is published; Postgres,
-MQTT and Node-RED stay on the private Docker network, and the editor is bound to 127.0.0.1 (SSH tunnel only).
+MQTT and Node-RED (CORE and Studio) stay on the private Docker network, and the editor is bound to 127.0.0.1 (SSH tunnel only).
 So no extra "production override" is needed. These scripts just automate the VM setup.
 
 ## Lowest-cost choice: Oracle Cloud "Always Free" (about $0)
@@ -32,11 +32,11 @@ Create an A record to the VM's IP and pass the name to bootstrap.sh (or change `
 | Task | Command |
 |---|---|
 | Update | `./deploy/update.sh` |
-| Logs | `docker compose logs -f nodered` |
+| Logs | `docker compose logs -f core studio` |
 | Backup now | `./deploy/backup.sh` (also nightly via cron, last 7 kept) |
 | Copy backups off the VM | `rsync -av user@vm:manufaction-backups/ ./backups/` |
 | Restore | `gunzip -c file.sql.gz \| docker compose exec -T postgres psql -U manufaction -d manufaction` (into an empty DB) |
-| Node-RED editor | `ssh -L 1880:127.0.0.1:1880 user@vm`, then http://localhost:1880 |
+| CORE editor (owner) | `ssh -L 1880:127.0.0.1:1880 user@vm`, then http://localhost:1880. Customer editor: https://your-site/studio |
 
 ## Notes
 - Don't use `ufw` to protect container ports: Docker publishes ports around it. The cloud security list is the real firewall; keep it to 22/80/443.

@@ -1,0 +1,1534 @@
+[
+    {
+        "id": "mqtt_cfg",
+        "type": "mqtt-broker",
+        "name": "Manufaction MQTT",
+        "broker": "${MQTT_HOST}",
+        "port": "1883",
+        "clientid": "mf-core",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "30",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "tab_lib",
+        "type": "tab",
+        "label": "00 Library & settings",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "c_lib",
+        "type": "comment",
+        "z": "tab_lib",
+        "name": "Shared helpers and live settings",
+        "info": "The Library node (no input) runs once at start and stores helper functions in global context (global.get('lib')): asset lookup, order rules, status rules. The 'Load settings' node reads mf.settings and mf.reason_codes every 10 s into global.get('cfg'). The customer edits those two tables in Studio, so their changes apply within 10 s and need no flow change.",
+        "x": 170,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "lib_fn",
+        "type": "function",
+        "z": "tab_lib",
+        "name": "Library (runs once at start)",
+        "func": "return null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "// LIBRARY: shared helper functions used by the other flows.\n// This node has no input. It runs once when the flows start (\"On Start\" tab) and stores the helpers\n// in global context as  global.get('lib'). Other function nodes call e.g. lib.findAsset(...).\nconst db = global.get('db');\nconst lib = {};\n\n// Rules and tuning values. The real values live in the mf.settings table (edited by the customer in\n// Studio) and are reloaded every 10 s by the \"Load settings\" node. These are the fall-backs.\nlib.defaults = {\n    plant_name: 'Manufaction Demo Factory',\n    offline_after_seconds: 30,\n    downtime_statuses: ['faulted', 'stopped', 'maintenance'],\n    alert_statuses: ['faulted', 'stopped'],\n    work_request_statuses: ['faulted'],\n    default_assignee: 'Maintenance on-call',\n    yield_target_pct: 95,\n    telemetry_keep_days: 7,\n    dispatch_retry_seconds: 15,\n    reasons: {},\n};\nlib.cfg = () => Object.assign({}, lib.defaults, global.get('cfg') || {});\n\nlib.STATUSES = ['running', 'idle', 'stopped', 'faulted', 'maintenance', 'offline'];\n\nlib.parseTs = (v) => {\n    if (v === null || v === undefined || v === '') return null;\n    const d = new Date(v);\n    return isNaN(d.getTime()) ? null : d;\n};\n\n// A machine that has been silent for longer than offline_after_seconds is shown as offline.\nlib.effectiveStatus = (status, lastSeen) => {\n    if (!lastSeen) return 'offline';\n    const silentMs = Date.now() - new Date(lastSeen).getTime();\n    return silentMs > lib.cfg().offline_after_seconds * 1000 ? 'offline' : status;\n};\n\nlib.fmtDuration = (s) => {\n    if (s === null || s === undefined) return 'unknown time';\n    if (s < 60) return s + 's';\n    if (s < 3600) return Math.floor(s / 60) + 'm ' + String(s % 60).padStart(2, '0') + 's';\n    return Math.floor(s / 3600) + 'h ' + String(Math.floor((s % 3600) / 60)).padStart(2, '0') + 'm';\n};\n\nlib.findAsset = async (site, asset, client) => {\n    const q = client || db;\n    const r = await q.query(\n        `SELECT a.*, s.site_code, s.timezone\n           FROM mf.assets a JOIN mf.sites s ON s.id = a.site_id\n          WHERE s.site_code = $1 AND a.asset_code = $2`, [site, asset]);\n    return r.rows[0] || null;\n};\n\n// Reason catalogue lookup (a specific code for this machine type wins over a generic one).\nlib.reason = (code) => (code && lib.cfg().reasons[code]) || null;\n\nlib.orderView = (o) => ({\n    order_number: o.order_number,\n    site: o.site_code,\n    asset: o.asset_code,\n    part_number: o.part_number,\n    target_quantity: o.target_quantity,\n    completed_quantity: o.completed_quantity,\n    scrap_quantity: o.scrap_quantity,\n    percent_complete: Math.round(1000 * o.completed_quantity / o.target_quantity) / 10,\n    status: o.status,\n    source_system: o.source_system,\n    released_at: o.released_at,\n    started_at: o.started_at,\n    completed_at: o.completed_at,\n});\n\nlib.ORDER_SQL = `SELECT o.*, s.site_code, a.asset_code\n                   FROM mf.production_orders o\n                   JOIN mf.sites s ON s.id = o.site_id\n                   LEFT JOIN mf.assets a ON a.id = o.asset_id`;\n\n// Assets in the shape the REST API returns: live status, latest signals, active order, open downtime.\nlib.assetViews = async (site, assetCode) => {\n    const assets = (await db.query(\n        `SELECT a.id, s.site_code, a.asset_code, a.name, a.asset_type, ar.name AS area,\n                a.status, a.status_changed_at, a.last_seen_at\n           FROM mf.assets a\n           JOIN mf.sites s ON s.id = a.site_id\n           LEFT JOIN mf.areas ar ON ar.id = a.area_id\n          WHERE ($1::text IS NULL OR s.site_code = $1) AND ($2::text IS NULL OR a.asset_code = $2)\n          ORDER BY a.asset_code`, [site || null, assetCode || null])).rows;\n    if (!assets.length) return [];\n    const ids = assets.map((a) => a.id);\n\n    const signals = (await db.query(\n        `SELECT asset_id, signal_name, last_value_numeric, last_value_text, unit, last_recorded_at\n           FROM mf.asset_signals WHERE asset_id = ANY($1::uuid[]) ORDER BY signal_name`, [ids])).rows;\n    const orders = (await db.query(\n        `${lib.ORDER_SQL}\n          WHERE o.asset_id = ANY($1::uuid[]) AND o.status IN ('released','running')\n          ORDER BY o.released_at`, [ids])).rows;\n    const downtime = (await db.query(\n        `SELECT d.*, (SELECT r.request_number FROM mf.maintenance_requests r\n                       WHERE r.downtime_event_id = d.id LIMIT 1) AS work_request\n           FROM mf.downtime_events d\n          WHERE d.asset_id = ANY($1::uuid[]) AND d.ended_at IS NULL`, [ids])).rows;\n\n    return assets.map((a) => {\n        const sig = {};\n        signals.filter((s) => s.asset_id === a.id).forEach((s) => {\n            sig[s.signal_name] = {\n                value: s.last_value_numeric !== null ? s.last_value_numeric : s.last_value_text,\n                unit: s.unit,\n                at: s.last_recorded_at,\n            };\n        });\n        const o = orders.find((x) => x.asset_id === a.id);\n        const d = downtime.find((x) => x.asset_id === a.id);\n        return {\n            site: a.site_code,\n            asset: a.asset_code,\n            name: a.name,\n            asset_type: a.asset_type,\n            area: a.area,\n            status: lib.effectiveStatus(a.status, a.last_seen_at),\n            status_changed_at: a.status_changed_at,\n            last_seen_at: a.last_seen_at,\n            signals: sig,\n            active_order: o ? lib.orderView(o) : null,\n            open_downtime: d ? {\n                status: d.status, reason_code: d.reason_code, reason_description: d.reason_description,\n                started_at: d.started_at, work_request: d.work_request,\n            } : null,\n        };\n    });\n};\n\n// Order creation rules: the asset must exist, and a machine may have only one open order.\n// (The database also enforces \"one open order per machine\"; we turn that into a clean 409.)\nlib.createOrder = async (o) => {\n    const a = await lib.findAsset(o.site, o.asset);\n    if (!a) return { status_code: 404, error: 'unknown_asset' };\n    const part = o.part_number || a.default_part_number;\n    if (!part) return { status_code: 400, error: 'bad_request', detail: 'part_number is required for this asset' };\n    try {\n        const r = await db.query(\n            `INSERT INTO mf.production_orders\n                    (site_id, asset_id, order_number, part_number, target_quantity, source_system)\n             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,\n            [a.site_id, a.id, o.order_number, part, o.target_quantity, o.source_system || 'API']);\n        return {\n            status_code: 201,\n            order: lib.orderView(Object.assign({}, r.rows[0], { site_code: a.site_code, asset_code: a.asset_code })),\n        };\n    } catch (e) {\n        if (e.code === '23505') {\n            return { status_code: 409, error: 'duplicate_order_or_asset_busy',\n                     detail: 'order_number already exists, or the asset already has an open order' };\n        }\n        throw e;\n    }\n};\n\n// start_order command for a machine (used by the API, the dispatcher and anything you add).\nlib.startCommand = (o) => ({\n    topic: `mf/v1/site/${o.site}/asset/${o.asset}/command`,\n    payload: { command: 'start_order', order_number: o.order_number,\n               part_number: o.part_number, target_quantity: o.target_quantity },\n});\n\nglobal.set('lib', lib);\nnode.status({ fill: 'green', shape: 'dot', text: 'library ready' });",
+        "finalize": "",
+        "libs": [],
+        "x": 230,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "cfg_tick",
+        "type": "inject",
+        "z": "tab_lib",
+        "name": "every 10 s",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "10",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "1",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 200,
+        "wires": [
+            [
+                "cfg_load"
+            ]
+        ]
+    },
+    {
+        "id": "cfg_load",
+        "type": "function",
+        "z": "tab_lib",
+        "name": "Load settings",
+        "func": "// Reads the rules the customer can edit (mf.settings and mf.reason_codes) into global context\n// as  global.get('cfg') . Runs every 10 seconds, so a change in Studio is live within 10 s.\nconst db = global.get('db');\nconst lib = global.get('lib');\nif (!lib) return null;                                   // library not started yet\n\nconst s = await db.query('SELECT key, value FROM mf.settings');\nconst r = await db.query('SELECT code, description, asset_type, severity, assigned_to FROM mf.reason_codes WHERE active');\n\nconst cfg = {};\ns.rows.forEach((row) => { cfg[row.key] = row.value; });\ncfg.reasons = {};\nr.rows.forEach((row) => { cfg.reasons[row.code] = row; });\nglobal.set('cfg', cfg);\n\nnode.status({ text: `${s.rows.length} settings, ${r.rows.length} reason codes @ ${new Date().toLocaleTimeString()}` });\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 200,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "lib_catch",
+        "type": "catch",
+        "z": "tab_lib",
+        "name": "errors on this tab",
+        "scope": null,
+        "uncaught": false,
+        "x": 140,
+        "y": 280,
+        "wires": [
+            [
+                "lib_err"
+            ]
+        ]
+    },
+    {
+        "id": "lib_err",
+        "type": "debug",
+        "z": "tab_lib",
+        "name": "settings errors",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "error",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 340,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "tab_ingest",
+        "type": "tab",
+        "label": "01 Ingestion",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "c_ing",
+        "type": "comment",
+        "z": "tab_ingest",
+        "name": "mf/v1/site/{site}/asset/{asset}/{telemetry|status|event}",
+        "info": "Machines (or the REST API) publish to MQTT. This tab checks each message and applies the rules: telemetry is stored, status updates the machine and opens or closes downtime, events count parts against the active order and complete it. Downtime changes continue on tab 04.",
+        "x": 170,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ing_in",
+        "type": "mqtt in",
+        "z": "tab_ingest",
+        "name": "all asset messages",
+        "topic": "mf/v1/site/+/asset/+/+",
+        "qos": "1",
+        "datatype": "utf8",
+        "broker": "mqtt_cfg",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "ing_route"
+            ]
+        ]
+    },
+    {
+        "id": "ing_route",
+        "type": "function",
+        "z": "tab_ingest",
+        "name": "Check topic and JSON",
+        "func": "// Every MQTT message from a machine lands here.\n// topic: mf/v1/site/{site}/asset/{asset}/{telemetry|status|event}\nconst p = msg.topic.split('/');\nif (p.length !== 7 || p[0] !== 'mf' || p[1] !== 'v1' || p[2] !== 'site' || p[4] !== 'asset') {\n    node.warn(`ignored topic ${msg.topic}`);\n    return null;\n}\nconst [site, asset, type] = [p[3], p[5], p[6]];\nif (type === 'command') return null;                  // our own outbound commands\nif (!['telemetry', 'status', 'event'].includes(type)) {\n    node.warn(`unknown message type '${type}' on ${msg.topic}`);\n    return null;\n}\nlet body;\ntry { body = JSON.parse(msg.payload); }\ncatch (e) { node.warn(`invalid JSON on ${msg.topic}`); return null; }\nif (body === null || typeof body !== 'object' || Array.isArray(body)) {\n    node.warn(`payload must be a JSON object on ${msg.topic}`); return null;\n}\nmsg.mf = { site, asset, type };\nmsg.body = body;\nnode.status({ text: `${asset} ${type} @ ${new Date().toLocaleTimeString()}` });\nreturn [type === 'telemetry' ? msg : null, type === 'status' ? msg : null, type === 'event' ? msg : null];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 120,
+        "wires": [
+            [
+                "ing_tel"
+            ],
+            [
+                "ing_stat"
+            ],
+            [
+                "ing_evt"
+            ]
+        ]
+    },
+    {
+        "id": "ing_tel",
+        "type": "function",
+        "z": "tab_ingest",
+        "name": "Store telemetry",
+        "func": "// Store signal readings: one row per signal in mf.telemetry, and the latest value on mf.asset_signals.\nconst db = global.get('db');\nconst lib = global.get('lib');\nconst { site, asset } = msg.mf;\nconst body = msg.body;\n\nconst a = await lib.findAsset(site, asset);\nif (!a) return [null, { topic: msg.topic, payload: { error: 'unknown_asset', site, asset } }];\nif (!body.signals || typeof body.signals !== 'object' || Array.isArray(body.signals)) {\n    return [null, { topic: msg.topic, payload: { error: 'signals_object_required' } }];\n}\nconst ts = lib.parseTs(body.timestamp) || new Date();\n\nawait db.tx(async (c) => {\n    await c.query('UPDATE mf.assets SET last_seen_at = GREATEST(COALESCE(last_seen_at, $2::timestamptz), $2::timestamptz) WHERE id = $1', [a.id, ts]);\n    for (const [name, value] of Object.entries(body.signals)) {\n        if (value === null || value === undefined) continue;\n        const isNum = typeof value === 'number' && Number.isFinite(value);\n        const num = isNum ? value : null;\n        const txt = isNum ? null : (typeof value === 'object' ? JSON.stringify(value) : String(value));\n        const unit = body.units && body.units[name] != null ? String(body.units[name]) : null;\n        const sig = await c.query(\n            `INSERT INTO mf.asset_signals (asset_id, signal_name, data_type, unit)\n             VALUES ($1, $2, $3, $4)\n             ON CONFLICT (asset_id, signal_name) DO UPDATE SET unit = COALESCE(EXCLUDED.unit, mf.asset_signals.unit)\n             RETURNING id`, [a.id, name, isNum ? 'numeric' : 'text', unit]);\n        const sid = sig.rows[0].id;\n        await c.query(\n            `INSERT INTO mf.telemetry (asset_id, signal_id, value_numeric, value_text, recorded_at)\n             VALUES ($1, $2, $3, $4, $5)`, [a.id, sid, num, txt, ts]);\n        await c.query(\n            `UPDATE mf.asset_signals SET last_value_numeric = $2, last_value_text = $3, last_recorded_at = $4\n              WHERE id = $1`, [sid, num, txt, ts]);\n    }\n});\nreturn null;",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 80,
+        "wires": [
+            [],
+            [
+                "ing_rej"
+            ]
+        ]
+    },
+    {
+        "id": "ing_stat",
+        "type": "function",
+        "z": "tab_ingest",
+        "name": "Apply status",
+        "func": "// A machine reports its state. Keep mf.assets current and open or close downtime.\n// Outputs: 1 = downtime opened (goes to \"04 Alerts & Maintenance\"), 2 = downtime closed, 3 = rejected.\nconst db = global.get('db');\nconst lib = global.get('lib');\nconst { site, asset } = msg.mf;\nconst body = msg.body;\n\nconst status = String(body.status || '').toLowerCase();\nif (!lib.STATUSES.includes(status)) {\n    return [null, null, { topic: msg.topic, payload: { error: 'invalid_status', status: body.status } }];\n}\nconst a = await lib.findAsset(site, asset);\nif (!a) return [null, null, { topic: msg.topic, payload: { error: 'unknown_asset', site, asset } }];\n\nconst ts = lib.parseTs(body.timestamp) || new Date();\nconst cfg = lib.cfg();\nconst isDown = cfg.downtime_statuses.includes(status);\n\n// reason text: what the machine said, else the catalogue entry for its reason code\nconst code = body.reason_code ? String(body.reason_code) : null;\nconst catalogue = lib.reason(code);\nconst reasonText = body.reason_description ? String(body.reason_description)\n                 : (catalogue ? catalogue.description : null);\n\nlet opened = null, closed = null;\nawait db.tx(async (c) => {\n    const cur = (await c.query('SELECT status FROM mf.assets WHERE id = $1 FOR UPDATE', [a.id])).rows[0];\n    await c.query('UPDATE mf.assets SET last_seen_at = GREATEST(COALESCE(last_seen_at, $2::timestamptz), $2::timestamptz) WHERE id = $1', [a.id, ts]);\n    if (cur.status !== status) {\n        await c.query('UPDATE mf.assets SET status = $2, status_changed_at = $3 WHERE id = $1', [a.id, status, ts]);\n    }\n    const open = (await c.query('SELECT * FROM mf.downtime_events WHERE asset_id = $1 AND ended_at IS NULL', [a.id])).rows[0];\n    let stillOpen = open;\n    // close the open downtime if the machine recovered or moved to a different downtime state\n    if (open && (!isDown || open.status !== status)) {\n        closed = (await c.query(\n            `UPDATE mf.downtime_events\n                SET ended_at = $2::timestamptz,\n                    duration_seconds = GREATEST(0, EXTRACT(EPOCH FROM ($2::timestamptz - started_at)))::int\n              WHERE id = $1 RETURNING *`, [open.id, ts])).rows[0];\n        stillOpen = null;\n    }\n    if (isDown && !stillOpen) {\n        opened = (await c.query(\n            `INSERT INTO mf.downtime_events (asset_id, status, reason_code, reason_description, started_at)\n             VALUES ($1, $2, $3, $4, $5) RETURNING *`, [a.id, status, code, reasonText, ts])).rows[0];\n    }\n});\n\nconst ctx = { asset: a };\nreturn [\n    opened ? { topic: msg.topic, payload: opened, ctx } : null,\n    closed ? { topic: msg.topic, payload: closed, ctx } : null,\n    null,\n];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 160,
+        "wires": [
+            [
+                "lo_open"
+            ],
+            [
+                "lo_close"
+            ],
+            [
+                "ing_rej"
+            ]
+        ]
+    },
+    {
+        "id": "ing_evt",
+        "type": "function",
+        "z": "tab_ingest",
+        "name": "Apply event (count parts)",
+        "func": "// A machine reports something that happened: online, order_started, cycle_complete, fault_cleared ...\n// This is where parts are counted against the active order and where an order is completed.\n// Outputs: 1 = command to the machine, 2 = production receipt for the ERP, 3 = rejected.\nconst db = global.get('db');\nconst lib = global.get('lib');\nconst { site, asset } = msg.mf;\nconst body = msg.body;\n\nconst ev = String(body.event_type || '').toLowerCase();\nif (!ev) return [null, null, { topic: msg.topic, payload: { error: 'event_type_required' } }];\nconst a = await lib.findAsset(site, asset);\nif (!a) return [null, null, { topic: msg.topic, payload: { error: 'unknown_asset', site, asset } }];\n\nconst ts = lib.parseTs(body.timestamp) || new Date();\n// quantity must be a whole number from 1 to 1000; anything else counts as 1\nconst q = Number(body.quantity);\nconst qty = Number.isInteger(q) && q >= 1 && q <= 1000 ? q : 1;\n\nlet completed = null;\nawait db.tx(async (c) => {\n    await c.query('UPDATE mf.assets SET last_seen_at = GREATEST(COALESCE(last_seen_at, $2::timestamptz), $2::timestamptz) WHERE id = $1', [a.id, ts]);\n\n    // a device that (re)started has lost its work: hand running orders back to be re-sent\n    if (ev === 'online') {\n        await c.query(`UPDATE mf.production_orders SET status = 'released' WHERE asset_id = $1 AND status = 'running'`, [a.id]);\n    }\n\n    let order;\n    if (ev === 'order_started') {\n        order = (await c.query(\n            `UPDATE mf.production_orders SET status = 'running', started_at = COALESCE(started_at, $3::timestamptz)\n              WHERE asset_id = $1 AND order_number = $2 AND status IN ('released','running') RETURNING *`,\n            [a.id, body.order_number || null, ts])).rows[0];\n    } else {\n        order = (await c.query(\n            `SELECT * FROM mf.production_orders WHERE asset_id = $1 AND status = 'running'\n              ORDER BY started_at LIMIT 1`, [a.id])).rows[0];\n    }\n\n    await c.query(\n        `INSERT INTO mf.production_events (asset_id, production_order_id, event_type, quantity, event_time, metadata)\n         VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,\n        [a.id, order ? order.id : null, ev, qty, ts, JSON.stringify(body)]);\n\n    if (ev === 'cycle_complete') {\n        let result = String(body.quality_result || 'good').toLowerCase();\n        if (!['good', 'scrap', 'rework'].includes(result)) result = 'good';\n        await c.query(\n            `INSERT INTO mf.quality_events (asset_id, production_order_id, part_number, result, defect_code, event_time)\n             VALUES ($1, $2, $3, $4, $5, $6)`,\n            [a.id, order ? order.id : null,\n             body.part_number || (order && order.part_number) || a.default_part_number,\n             result, body.defect_code || null, ts]);\n\n        if (order) {\n            const upd = (await c.query(\n                `UPDATE mf.production_orders\n                    SET completed_quantity = completed_quantity + $2, scrap_quantity = scrap_quantity + $3\n                  WHERE id = $1 RETURNING *`,\n                [order.id, result === 'good' ? qty : 0, result === 'good' ? 0 : qty])).rows[0];\n            if (upd.completed_quantity >= upd.target_quantity) {\n                // \"AND status = 'running'\" makes sure an order is completed, and its receipt sent, only once\n                const done = (await c.query(\n                    `UPDATE mf.production_orders SET status = 'complete', completed_at = $2\n                      WHERE id = $1 AND status = 'running' RETURNING *`, [order.id, ts])).rows[0];\n                if (done) {\n                    completed = {\n                        order_number: done.order_number, part_number: done.part_number,\n                        good_quantity: done.completed_quantity, scrap_quantity: done.scrap_quantity,\n                        completed_at: done.completed_at, site, asset,\n                    };\n                }\n            }\n        }\n    }\n});\n\nif (!completed) return null;\n\nnode.status({ fill: 'green', shape: 'dot', text: `${completed.order_number} complete` });\n// 1) tell the machine the order is finished\nconst cmd = {\n    topic: `mf/v1/site/${site}/asset/${asset}/command`,\n    payload: { command: 'complete_order', order_number: completed.order_number },\n};\n// 2) send the production receipt back to the (demo) ERP\nconst receipt = {\n    method: 'POST',\n    url: 'http://127.0.0.1:1880/demo-erp/receipts',\n    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + env.get('MF_API_TOKEN') },\n    payload: completed,\n};\nreturn [cmd, receipt, null];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 260,
+        "wires": [
+            [
+                "ing_cmd_out"
+            ],
+            [
+                "ing_erp_req"
+            ],
+            [
+                "ing_rej"
+            ]
+        ]
+    },
+    {
+        "id": "lo_open",
+        "type": "link out",
+        "z": "tab_ingest",
+        "name": "downtime opened",
+        "mode": "link",
+        "links": [
+            "li_open"
+        ],
+        "x": 860,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "lo_close",
+        "type": "link out",
+        "z": "tab_ingest",
+        "name": "downtime closed",
+        "mode": "link",
+        "links": [
+            "li_close"
+        ],
+        "x": 860,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "ing_cmd_out",
+        "type": "mqtt out",
+        "z": "tab_ingest",
+        "name": "command -> machine",
+        "topic": "",
+        "qos": "1",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "mqtt_cfg",
+        "x": 900,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "ing_erp_req",
+        "type": "http request",
+        "z": "tab_ingest",
+        "name": "POST receipt to ERP",
+        "method": "use",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 900,
+        "y": 290,
+        "wires": [
+            [
+                "ing_erp_dbg"
+            ]
+        ]
+    },
+    {
+        "id": "ing_erp_dbg",
+        "type": "debug",
+        "z": "tab_ingest",
+        "name": "ERP response",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1110,
+        "y": 290,
+        "wires": []
+    },
+    {
+        "id": "ing_rej",
+        "type": "debug",
+        "z": "tab_ingest",
+        "name": "rejected messages",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 900,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "ing_catch",
+        "type": "catch",
+        "z": "tab_ingest",
+        "name": "errors on this tab",
+        "scope": null,
+        "uncaught": false,
+        "x": 150,
+        "y": 400,
+        "wires": [
+            [
+                "ing_err_dbg"
+            ]
+        ]
+    },
+    {
+        "id": "ing_err_dbg",
+        "type": "debug",
+        "z": "tab_ingest",
+        "name": "ingestion errors",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "error",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 380,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "tab_api",
+        "type": "tab",
+        "label": "02 REST API",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "c_api",
+        "type": "comment",
+        "z": "tab_api",
+        "name": "REST API v1",
+        "info": "Every route except /health needs Authorization: Bearer $MF_API_TOKEN. Caddy adds the token for browser users who passed the login. Each route is one function node: check the token, read or write the database, answer. POSTs of telemetry/events/status are published to MQTT so they take the same path as a device.",
+        "x": 170,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "api_in_health",
+        "type": "http in",
+        "z": "tab_api",
+        "name": "GET /api/v1/health",
+        "url": "/api/v1/health",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 100,
+        "wires": [
+            [
+                "api_fn_health"
+            ]
+        ]
+    },
+    {
+        "id": "api_fn_health",
+        "type": "function",
+        "z": "tab_api",
+        "name": "Health",
+        "func": "// GET /api/v1/health: public (uptime monitors), no token needed\nconst db = global.get('db');\nmsg.headers = { 'content-type': 'application/json', 'cache-control': 'no-store' };\ntry {\n    const r = await db.query('SELECT now() AS db_time');\n    msg.statusCode = 200;\n    msg.payload = { status: 'ok', service: 'manufaction', version: env.get('MF_VERSION') || '2.0.0', db_time: r.rows[0].db_time };\n} catch (e) {\n    msg.statusCode = 503;\n    msg.payload = { error: 'database_unavailable' };\n}\nreturn [msg, null];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 100,
+        "wires": [
+            [
+                "api_resp"
+            ],
+            [
+                "api_mqtt"
+            ]
+        ]
+    },
+    {
+        "id": "api_in_assets",
+        "type": "http in",
+        "z": "tab_api",
+        "name": "GET /api/v1/assets",
+        "url": "/api/v1/assets",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 150,
+        "wires": [
+            [
+                "api_fn_assets"
+            ]
+        ]
+    },
+    {
+        "id": "api_fn_assets",
+        "type": "function",
+        "z": "tab_api",
+        "name": "List assets",
+        "func": "// GET /api/v1/assets: every machine with live status, latest signals, active order, open downtime\nconst lib = global.get('lib');\nconst db = global.get('db');\nif (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401; msg.payload = { error: 'unauthorized' };\n    return [msg, null];\n}\nmsg.headers = { 'content-type': 'application/json', 'cache-control': 'no-store' };\n\nmsg.payload = await lib.assetViews(null, null);\nmsg.statusCode = 200;\nreturn [msg, null];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 150,
+        "wires": [
+            [
+                "api_resp"
+            ],
+            [
+                "api_mqtt"
+            ]
+        ]
+    },
+    {
+        "id": "api_in_asset",
+        "type": "http in",
+        "z": "tab_api",
+        "name": "GET /api/v1/assets/:asset_code",
+        "url": "/api/v1/assets/:asset_code",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 200,
+        "wires": [
+            [
+                "api_fn_asset"
+            ]
+        ]
+    },
+    {
+        "id": "api_fn_asset",
+        "type": "function",
+        "z": "tab_api",
+        "name": "Get asset",
+        "func": "// GET /api/v1/assets/:asset_code\nconst lib = global.get('lib');\nconst db = global.get('db');\nif (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401; msg.payload = { error: 'unauthorized' };\n    return [msg, null];\n}\nmsg.headers = { 'content-type': 'application/json', 'cache-control': 'no-store' };\n\nconst list = await lib.assetViews(null, String(msg.req.params.asset_code));\nif (!list.length) { msg.statusCode = 404; msg.payload = { error: 'not_found' }; return [msg, null]; }\nmsg.statusCode = 200; msg.payload = list[0];\nreturn [msg, null];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 200,
+        "wires": [
+            [
+                "api_resp"
+            ],
+            [
+                "api_mqtt"
+            ]
+        ]
+    },
+    {
+        "id": "api_in_orders",
+        "type": "http in",
+        "z": "tab_api",
+        "name": "GET /api/v1/production",
+        "url": "/api/v1/production",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 250,
+        "wires": [
+            [
+                "api_fn_orders"
+            ]
+        ]
+    },
+    {
+        "id": "api_fn_orders",
+        "type": "function",
+        "z": "tab_api",
+        "name": "List orders",
+        "func": "// GET /api/v1/production: the 50 most recent orders\nconst lib = global.get('lib');\nconst db = global.get('db');\nif (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401; msg.payload = { error: 'unauthorized' };\n    return [msg, null];\n}\nmsg.headers = { 'content-type': 'application/json', 'cache-control': 'no-store' };\n\nconst rows = (await db.query(`${lib.ORDER_SQL} ORDER BY o.released_at DESC LIMIT 50`)).rows;\nmsg.statusCode = 200; msg.payload = rows.map(lib.orderView);\nreturn [msg, null];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 250,
+        "wires": [
+            [
+                "api_resp"
+            ],
+            [
+                "api_mqtt"
+            ]
+        ]
+    },
+    {
+        "id": "api_in_order",
+        "type": "http in",
+        "z": "tab_api",
+        "name": "GET /api/v1/production/:order_number",
+        "url": "/api/v1/production/:order_number",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 300,
+        "wires": [
+            [
+                "api_fn_order"
+            ]
+        ]
+    },
+    {
+        "id": "api_fn_order",
+        "type": "function",
+        "z": "tab_api",
+        "name": "Get order",
+        "func": "// GET /api/v1/production/:order_number\nconst lib = global.get('lib');\nconst db = global.get('db');\nif (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401; msg.payload = { error: 'unauthorized' };\n    return [msg, null];\n}\nmsg.headers = { 'content-type': 'application/json', 'cache-control': 'no-store' };\n\nconst rows = (await db.query(`${lib.ORDER_SQL} WHERE o.order_number = $1`, [String(msg.req.params.order_number)])).rows;\nif (!rows.length) { msg.statusCode = 404; msg.payload = { error: 'not_found' }; return [msg, null]; }\nmsg.statusCode = 200; msg.payload = lib.orderView(rows[0]);\nreturn [msg, null];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 300,
+        "wires": [
+            [
+                "api_resp"
+            ],
+            [
+                "api_mqtt"
+            ]
+        ]
+    },
+    {
+        "id": "api_in_downtime",
+        "type": "http in",
+        "z": "tab_api",
+        "name": "GET /api/v1/downtime",
+        "url": "/api/v1/downtime",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 350,
+        "wires": [
+            [
+                "api_fn_downtime"
+            ]
+        ]
+    },
+    {
+        "id": "api_fn_downtime",
+        "type": "function",
+        "z": "tab_api",
+        "name": "List downtime",
+        "func": "// GET /api/v1/downtime: the 50 most recent downtime events\nconst lib = global.get('lib');\nconst db = global.get('db');\nif (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401; msg.payload = { error: 'unauthorized' };\n    return [msg, null];\n}\nmsg.headers = { 'content-type': 'application/json', 'cache-control': 'no-store' };\n\nconst rows = (await db.query(\n    `SELECT s.site_code AS site, a.asset_code AS asset, d.status, d.reason_code, d.reason_description,\n            d.started_at, d.ended_at, d.duration_seconds\n       FROM mf.downtime_events d\n       JOIN mf.assets a ON a.id = d.asset_id\n       JOIN mf.sites s ON s.id = a.site_id\n      ORDER BY d.started_at DESC LIMIT 50`)).rows;\nmsg.statusCode = 200; msg.payload = rows;\nreturn [msg, null];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 350,
+        "wires": [
+            [
+                "api_resp"
+            ],
+            [
+                "api_mqtt"
+            ]
+        ]
+    },
+    {
+        "id": "api_in_create_order",
+        "type": "http in",
+        "z": "tab_api",
+        "name": "POST /api/v1/production-orders",
+        "url": "/api/v1/production-orders",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 400,
+        "wires": [
+            [
+                "api_fn_create_order"
+            ]
+        ]
+    },
+    {
+        "id": "api_fn_create_order",
+        "type": "function",
+        "z": "tab_api",
+        "name": "Create order",
+        "func": "// POST /api/v1/production-orders: release an order to a machine\nconst lib = global.get('lib');\nconst db = global.get('db');\nif (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401; msg.payload = { error: 'unauthorized' };\n    return [msg, null];\n}\nmsg.headers = { 'content-type': 'application/json', 'cache-control': 'no-store' };\n\nconst b = msg.payload || {};\nconst asset = b.asset || b.asset_id;\nconst qty = Number(b.target_quantity);\nif (!asset || !b.order_number) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'asset and order_number are required' }; return [msg, null]; }\nif (!Number.isInteger(qty) || qty <= 0 || qty > 1000000) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'target_quantity must be a positive integer' }; return [msg, null]; }\nconst r = await lib.createOrder({\n    site: String(b.site || 'demo'), asset: String(asset), order_number: String(b.order_number),\n    part_number: b.part_number ? String(b.part_number) : null, target_quantity: qty,\n    source_system: String(b.source_system || 'API'),\n});\nmsg.statusCode = r.status_code;\nif (!r.order) { msg.payload = { error: r.error, detail: r.detail }; return [msg, null]; }\nmsg.payload = r.order;\nreturn [msg, lib.startCommand(r.order)];        // tell the machine to start right away\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 400,
+        "wires": [
+            [
+                "api_resp"
+            ],
+            [
+                "api_mqtt"
+            ]
+        ]
+    },
+    {
+        "id": "api_in_telemetry",
+        "type": "http in",
+        "z": "tab_api",
+        "name": "POST /api/v1/telemetry",
+        "url": "/api/v1/telemetry",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 450,
+        "wires": [
+            [
+                "api_fn_telemetry"
+            ]
+        ]
+    },
+    {
+        "id": "api_fn_telemetry",
+        "type": "function",
+        "z": "tab_api",
+        "name": "Ingest telemetry",
+        "func": "// POST /api/v1/telemetry: accepted and published to MQTT\nconst lib = global.get('lib');\nconst db = global.get('db');\nif (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401; msg.payload = { error: 'unauthorized' };\n    return [msg, null];\n}\nmsg.headers = { 'content-type': 'application/json', 'cache-control': 'no-store' };\n\nconst b = (msg.payload && typeof msg.payload === 'object') ? Object.assign({}, msg.payload) : null;\nif (!b) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'JSON object body required' }; return [msg, null]; }\nconst asset = b.asset || b.asset_id;\nconst site = String(b.site || 'demo');\nif (!asset || !/^[A-Za-z0-9_.-]+$/.test(asset) || !/^[A-Za-z0-9_.-]+$/.test(site))\n    { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'valid asset (and optional site) required' }; return [msg, null]; }\nconst TYPE = 'telemetry';\nif (TYPE === 'telemetry' && (typeof b.signals !== 'object' || b.signals === null)) {\n    // accept flat bodies: { asset_id, temperature: 186.4, pressure: 1840 }\n    const signals = {};\n    for (const [k, v] of Object.entries(b)) {\n        if (!['site', 'asset', 'asset_id', 'timestamp', 'units'].includes(k)) signals[k] = v;\n    }\n    b.signals = signals;\n}\nif (TYPE === 'event' && !b.event_type) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'event_type required' }; return [msg, null]; }\nif (TYPE === 'status' && !b.status) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'status required' }; return [msg, null]; }\nb.timestamp = b.timestamp || new Date().toISOString();\n// Publish to MQTT: the REST path and the device path then go through exactly the same ingestion flow.\nconst pub = { topic: `mf/v1/site/${site}/asset/${asset}/${TYPE}`, payload: JSON.stringify(b) };\nmsg.statusCode = 202;\nmsg.payload = { accepted: true, topic: pub.topic };\nreturn [msg, pub];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 450,
+        "wires": [
+            [
+                "api_resp"
+            ],
+            [
+                "api_mqtt"
+            ]
+        ]
+    },
+    {
+        "id": "api_in_events",
+        "type": "http in",
+        "z": "tab_api",
+        "name": "POST /api/v1/events",
+        "url": "/api/v1/events",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 500,
+        "wires": [
+            [
+                "api_fn_events"
+            ]
+        ]
+    },
+    {
+        "id": "api_fn_events",
+        "type": "function",
+        "z": "tab_api",
+        "name": "Ingest events",
+        "func": "// POST /api/v1/events: accepted and published to MQTT\nconst lib = global.get('lib');\nconst db = global.get('db');\nif (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401; msg.payload = { error: 'unauthorized' };\n    return [msg, null];\n}\nmsg.headers = { 'content-type': 'application/json', 'cache-control': 'no-store' };\n\nconst b = (msg.payload && typeof msg.payload === 'object') ? Object.assign({}, msg.payload) : null;\nif (!b) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'JSON object body required' }; return [msg, null]; }\nconst asset = b.asset || b.asset_id;\nconst site = String(b.site || 'demo');\nif (!asset || !/^[A-Za-z0-9_.-]+$/.test(asset) || !/^[A-Za-z0-9_.-]+$/.test(site))\n    { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'valid asset (and optional site) required' }; return [msg, null]; }\nconst TYPE = 'event';\nif (TYPE === 'telemetry' && (typeof b.signals !== 'object' || b.signals === null)) {\n    // accept flat bodies: { asset_id, temperature: 186.4, pressure: 1840 }\n    const signals = {};\n    for (const [k, v] of Object.entries(b)) {\n        if (!['site', 'asset', 'asset_id', 'timestamp', 'units'].includes(k)) signals[k] = v;\n    }\n    b.signals = signals;\n}\nif (TYPE === 'event' && !b.event_type) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'event_type required' }; return [msg, null]; }\nif (TYPE === 'status' && !b.status) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'status required' }; return [msg, null]; }\nb.timestamp = b.timestamp || new Date().toISOString();\n// Publish to MQTT: the REST path and the device path then go through exactly the same ingestion flow.\nconst pub = { topic: `mf/v1/site/${site}/asset/${asset}/${TYPE}`, payload: JSON.stringify(b) };\nmsg.statusCode = 202;\nmsg.payload = { accepted: true, topic: pub.topic };\nreturn [msg, pub];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 500,
+        "wires": [
+            [
+                "api_resp"
+            ],
+            [
+                "api_mqtt"
+            ]
+        ]
+    },
+    {
+        "id": "api_in_status",
+        "type": "http in",
+        "z": "tab_api",
+        "name": "POST /api/v1/status",
+        "url": "/api/v1/status",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 550,
+        "wires": [
+            [
+                "api_fn_status"
+            ]
+        ]
+    },
+    {
+        "id": "api_fn_status",
+        "type": "function",
+        "z": "tab_api",
+        "name": "Ingest status",
+        "func": "// POST /api/v1/status: accepted and published to MQTT\nconst lib = global.get('lib');\nconst db = global.get('db');\nif (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401; msg.payload = { error: 'unauthorized' };\n    return [msg, null];\n}\nmsg.headers = { 'content-type': 'application/json', 'cache-control': 'no-store' };\n\nconst b = (msg.payload && typeof msg.payload === 'object') ? Object.assign({}, msg.payload) : null;\nif (!b) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'JSON object body required' }; return [msg, null]; }\nconst asset = b.asset || b.asset_id;\nconst site = String(b.site || 'demo');\nif (!asset || !/^[A-Za-z0-9_.-]+$/.test(asset) || !/^[A-Za-z0-9_.-]+$/.test(site))\n    { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'valid asset (and optional site) required' }; return [msg, null]; }\nconst TYPE = 'status';\nif (TYPE === 'telemetry' && (typeof b.signals !== 'object' || b.signals === null)) {\n    // accept flat bodies: { asset_id, temperature: 186.4, pressure: 1840 }\n    const signals = {};\n    for (const [k, v] of Object.entries(b)) {\n        if (!['site', 'asset', 'asset_id', 'timestamp', 'units'].includes(k)) signals[k] = v;\n    }\n    b.signals = signals;\n}\nif (TYPE === 'event' && !b.event_type) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'event_type required' }; return [msg, null]; }\nif (TYPE === 'status' && !b.status) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'status required' }; return [msg, null]; }\nb.timestamp = b.timestamp || new Date().toISOString();\n// Publish to MQTT: the REST path and the device path then go through exactly the same ingestion flow.\nconst pub = { topic: `mf/v1/site/${site}/asset/${asset}/${TYPE}`, payload: JSON.stringify(b) };\nmsg.statusCode = 202;\nmsg.payload = { accepted: true, topic: pub.topic };\nreturn [msg, pub];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 550,
+        "wires": [
+            [
+                "api_resp"
+            ],
+            [
+                "api_mqtt"
+            ]
+        ]
+    },
+    {
+        "id": "api_resp",
+        "type": "http response",
+        "z": "tab_api",
+        "name": "respond",
+        "statusCode": "",
+        "headers": {},
+        "x": 760,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "api_mqtt",
+        "type": "mqtt out",
+        "z": "tab_api",
+        "name": "publish to MQTT",
+        "topic": "",
+        "qos": "1",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "mqtt_cfg",
+        "x": 770,
+        "y": 330,
+        "wires": []
+    },
+    {
+        "id": "api_catch",
+        "type": "catch",
+        "z": "tab_api",
+        "name": "errors on this tab",
+        "scope": null,
+        "uncaught": false,
+        "x": 190,
+        "y": 640,
+        "wires": [
+            [
+                "api_err"
+            ]
+        ]
+    },
+    {
+        "id": "api_err",
+        "type": "function",
+        "z": "tab_api",
+        "name": "500 if a request is waiting",
+        "func": "if (!msg.res) { node.warn(msg.error && msg.error.message); return null; }\nmsg.statusCode = 500;\nmsg.headers = { 'content-type': 'application/json' };\nmsg.payload = { error: 'internal_error' };\nnode.warn(msg.error && msg.error.message);\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 640,
+        "wires": [
+            [
+                "api_resp"
+            ]
+        ]
+    },
+    {
+        "id": "tab_orders",
+        "type": "tab",
+        "label": "03 Orders & dispatch",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "c_ord",
+        "type": "comment",
+        "z": "tab_orders",
+        "name": "Dispatch released orders (retries until the machine confirms)",
+        "info": "A released order is sent to its machine with start_order. If the machine is offline or misses it, this tab sends it again every 'dispatch_retry_seconds' (a setting) until the machine answers order_started.",
+        "x": 170,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "disp_tick",
+        "type": "inject",
+        "z": "tab_orders",
+        "name": "every 5 s",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "5",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "8",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "disp_fn"
+            ]
+        ]
+    },
+    {
+        "id": "disp_fn",
+        "type": "function",
+        "z": "tab_orders",
+        "name": "Re-send start_order",
+        "func": "// Re-send start_order to machines that have a released order but have not acknowledged it yet.\n// (The machine confirms with an order_started event; until then the order stays \"released\".)\nconst db = global.get('db');\nconst lib = global.get('lib');\nconst cfg = lib.cfg();\n\n// the tick runs every 5 s; only act as often as the \"dispatch_retry_seconds\" setting says\nconst last = context.get('last') || 0;\nif (Date.now() - last < cfg.dispatch_retry_seconds * 1000 - 500) return null;\ncontext.set('last', Date.now());\n\nconst rows = (await db.query(\n    `SELECT s.site_code AS site, a.asset_code AS asset, o.order_number, o.part_number, o.target_quantity,\n            a.status, a.last_seen_at\n       FROM mf.production_orders o\n       JOIN mf.assets a ON a.id = o.asset_id\n       JOIN mf.sites s ON s.id = o.site_id\n      WHERE o.status = 'released'`)).rows\n    .filter((r) => lib.effectiveStatus(r.status, r.last_seen_at) !== 'offline');\n\nnode.status({ text: `${rows.length} dispatched @ ${new Date().toLocaleTimeString()}` });\nreturn [rows.map((r) => lib.startCommand(r))];",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 120,
+        "wires": [
+            [
+                "disp_out"
+            ]
+        ]
+    },
+    {
+        "id": "disp_out",
+        "type": "mqtt out",
+        "z": "tab_orders",
+        "name": "command -> machine",
+        "topic": "",
+        "qos": "1",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "mqtt_cfg",
+        "x": 640,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "disp_catch",
+        "type": "catch",
+        "z": "tab_orders",
+        "name": "errors on this tab",
+        "scope": null,
+        "uncaught": false,
+        "x": 150,
+        "y": 220,
+        "wires": [
+            [
+                "disp_err"
+            ]
+        ]
+    },
+    {
+        "id": "disp_err",
+        "type": "debug",
+        "z": "tab_orders",
+        "name": "dispatch errors",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "error",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 380,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "tab_alerts",
+        "type": "tab",
+        "label": "04 Alerts & maintenance",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "c_alr",
+        "type": "comment",
+        "z": "tab_alerts",
+        "name": "Downtime -> alert + maintenance work request",
+        "info": "When a machine goes down: record a dashboard alert and, for faults, a maintenance work request (WR-YYMMDD-NNN) assigned from the reason-code catalogue. When it recovers: close the request and post a recovery notice. Which statuses count, and who is assigned, are settings and reason codes the customer edits in Studio.",
+        "x": 170,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "li_open",
+        "type": "link in",
+        "z": "tab_alerts",
+        "name": "downtime opened",
+        "links": [
+            "lo_open"
+        ],
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "alr_open"
+            ]
+        ]
+    },
+    {
+        "id": "alr_open",
+        "type": "function",
+        "z": "tab_alerts",
+        "name": "Raise alert + work request",
+        "func": "// A machine went down. Decide what the plant needs to know and who must act:\n//   * a dashboard alert              (statuses listed in the \"alert_statuses\" setting)\n//   * a maintenance work request     (statuses listed in \"work_request_statuses\")\n// Who gets the work request, and how serious it is, comes from the reason code catalogue.\nconst db = global.get('db');\nconst lib = global.get('lib');\nconst cfg = lib.cfg();\nconst d = msg.payload;                    // the new mf.downtime_events row\nconst a = msg.ctx.asset;                  // the machine\n\nconst reason = lib.reason(d.reason_code);\nconst what = d.reason_description || (reason && reason.description) || d.reason_code || 'No reason reported';\nconst severity = reason && reason.severity ? reason.severity : 'critical';\nconst assignee = (reason && reason.assigned_to) || cfg.default_assignee;\nlet workRequest = null;\n\nawait db.tx(async (c) => {\n    if (!d.reason_description && what !== 'No reason reported') {\n        await c.query('UPDATE mf.downtime_events SET reason_description = $2 WHERE id = $1', [d.id, what]);\n    }\n    if (cfg.alert_statuses.includes(d.status)) {\n        await c.query(\n            `INSERT INTO mf.notifications (kind, severity, asset_id, downtime_event_id, title, message, created_at)\n             VALUES ('downtime_alert', $1, $2, $3, $4, $5, $6)`,\n            [severity, a.id, d.id, `${a.asset_code} ${d.status}`, what, d.started_at]);\n    }\n    if (cfg.work_request_statuses.includes(d.status)) {\n        // WR-YYMMDD-NNN : date in the plant's own time zone, running number from a database sequence\n        const n = (await c.query(\n            `SELECT 'WR-' || to_char($1::timestamptz AT TIME ZONE $2, 'YYMMDD') || '-'\n                    || lpad(nextval('mf.work_request_seq')::text, 3, '0') AS number`,\n            [d.started_at, a.timezone])).rows[0].number;\n        workRequest = n;\n        await c.query(\n            `INSERT INTO mf.maintenance_requests\n                    (request_number, asset_id, downtime_event_id, reason_code, description, assigned_to, opened_at)\n             VALUES ($1, $2, $3, $4, $5, $6, $7)`,\n            [n, a.id, d.id, d.reason_code, what, assignee, d.started_at]);\n        await c.query(\n            `INSERT INTO mf.notifications (kind, severity, asset_id, downtime_event_id, title, message, created_at)\n             VALUES ('maintenance_dispatched', 'info', $1, $2, 'Maintenance notified', $3,\n                     $4::timestamptz + interval '1 second')`,\n            [a.id, d.id, `${n} sent to ${assignee} for ${a.asset_code}`, d.started_at]);\n    }\n});\n\nnode.status({ fill: 'red', shape: 'dot', text: `${a.asset_code} ${d.status}${workRequest ? ' ' + workRequest : ''}` });\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "li_close",
+        "type": "link in",
+        "z": "tab_alerts",
+        "name": "downtime closed",
+        "links": [
+            "lo_close"
+        ],
+        "x": 150,
+        "y": 200,
+        "wires": [
+            [
+                "alr_close"
+            ]
+        ]
+    },
+    {
+        "id": "alr_close",
+        "type": "function",
+        "z": "tab_alerts",
+        "name": "Close request + recovery notice",
+        "func": "// A machine came back. Close its work request and tell the plant it is producing again.\nconst db = global.get('db');\nconst lib = global.get('lib');\nconst cfg = lib.cfg();\nconst d = msg.payload;                    // the downtime row, now with ended_at and duration_seconds\nconst a = msg.ctx.asset;\n\nawait db.tx(async (c) => {\n    await c.query(\n        `UPDATE mf.maintenance_requests SET status = 'closed', closed_at = $2\n          WHERE downtime_event_id = $1 AND status = 'open'`, [d.id, d.ended_at]);\n    if (cfg.alert_statuses.includes(d.status)) {\n        await c.query(\n            `INSERT INTO mf.notifications (kind, severity, asset_id, downtime_event_id, title, message, created_at)\n             VALUES ('recovered', 'success', $1, $2, $3, $4, $5)`,\n            [a.id, d.id, `${a.asset_code} back in production`,\n             `Down for ${lib.fmtDuration(d.duration_seconds)}`, d.ended_at]);\n    }\n});\nnode.status({ fill: 'green', shape: 'dot', text: `${a.asset_code} recovered` });\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 200,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "alr_catch",
+        "type": "catch",
+        "z": "tab_alerts",
+        "name": "errors on this tab",
+        "scope": null,
+        "uncaught": false,
+        "x": 150,
+        "y": 300,
+        "wires": [
+            [
+                "alr_err"
+            ]
+        ]
+    },
+    {
+        "id": "alr_err",
+        "type": "debug",
+        "z": "tab_alerts",
+        "name": "alert errors",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "error",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 380,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "tab_notify",
+        "type": "tab",
+        "label": "05 Notifications",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "c_ntf",
+        "type": "comment",
+        "z": "tab_notify",
+        "name": "Alerts -> webhook (set MF_NOTIFY_WEBHOOK_URL in .env)",
+        "info": "Sends each new alert to Slack, Mattermost, Discord, ntfy.sh, Zapier, Make or any HTTPS endpoint. MF_NOTIFY_FORMAT picks the shape (json, slack, discord, text). Off until a URL is set.",
+        "x": 170,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ntf_tick",
+        "type": "inject",
+        "z": "tab_notify",
+        "name": "every 5 s",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "5",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "20",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "ntf_q"
+            ]
+        ]
+    },
+    {
+        "id": "ntf_q",
+        "type": "function",
+        "z": "tab_notify",
+        "name": "Find undelivered alerts",
+        "func": "// Every 5 s: find alerts that have not been delivered yet.\n// Delivery is off until MF_NOTIFY_WEBHOOK_URL is set in .env.\n// A failed send is retried up to 5 times, 15 s apart; anything older than 15 minutes is dropped,\n// so switching delivery on never replays old alerts.\nconst db = global.get('db');\nif (!env.get('MF_NOTIFY_WEBHOOK_URL')) {\n    node.status({ fill: 'grey', shape: 'ring', text: 'disabled (no MF_NOTIFY_WEBHOOK_URL)' });\n    return null;\n}\nnode.status({ fill: 'green', shape: 'dot', text: 'enabled' });\n\nconst rows = (await db.query(\n    `SELECT n.id, n.kind, n.severity, n.title, n.message, n.created_at,\n            s.site_code, a.asset_code,\n            r.request_number AS work_request, r.reason_code, r.description AS wr_description, r.assigned_to\n       FROM mf.notifications n\n       LEFT JOIN mf.assets a ON a.id = n.asset_id\n       LEFT JOIN mf.sites s ON s.id = a.site_id\n       LEFT JOIN mf.maintenance_requests r ON r.downtime_event_id = n.downtime_event_id\n      WHERE NOT n.seeded\n        AND n.delivered_at IS NULL\n        AND n.delivery_attempts < 5\n        AND n.created_at > NOW() - INTERVAL '15 minutes'\n        AND (n.last_attempt_at IS NULL OR n.last_attempt_at < NOW() - INTERVAL '15 seconds')\n        AND NOT (n.kind = 'downtime_alert' AND r.id IS NOT NULL)   -- the work-request message covers it\n      ORDER BY n.created_at, n.id\n      LIMIT 10`)).rows;\nif (!rows.length) return null;\n\n// Wording of each message. Change the text here to change what people receive.\nconst text = (r) => {\n    switch (r.kind) {\n        case 'maintenance_dispatched':\n            return `FAULT: ${r.asset_code} - ${r.wr_description || 'no reason reported'}. Work request ${r.work_request} sent to ${r.assigned_to}.`;\n        case 'downtime_alert':\n            return `STOPPED: ${r.asset_code} has stopped (${r.message || 'no reason reported'}).`;\n        case 'recovered':\n            return `BACK IN PRODUCTION: ${r.asset_code} - ${r.message || ''}.`;\n        default:\n            return 'TEST: Manufaction notifications are working.';\n    }\n};\nreturn [rows.map((r) => Object.assign({}, r, { text: text(r) })).map((r) => ({ payload: r }))];",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 120,
+        "wires": [
+            [
+                "ntf_build"
+            ]
+        ]
+    },
+    {
+        "id": "ntf_build",
+        "type": "function",
+        "z": "tab_notify",
+        "name": "Format message",
+        "func": "// Shape one alert for the destination chosen by MF_NOTIFY_FORMAT:\n//   json (default, full event for Zapier / Make / your own endpoint) | slack | discord | text (ntfy.sh)\nconst url = env.get('MF_NOTIFY_WEBHOOK_URL');\nconst fmt = (env.get('MF_NOTIFY_FORMAT') || 'json').toLowerCase();\nconst token = env.get('MF_NOTIFY_BEARER_TOKEN');\nconst oneLine = (s) => String(s == null ? '' : s).replace(/[\\r\\n]+/g, ' ');\nconst r = msg.payload;\n\nconst m = { notification_id: r.id, method: 'POST', url, headers: {} };\nif (token) m.headers.authorization = 'Bearer ' + token;\nif (fmt === 'slack') {                    // Slack / Mattermost incoming webhook\n    m.headers['content-type'] = 'application/json';\n    m.payload = { text: r.text };\n} else if (fmt === 'discord') {\n    m.headers['content-type'] = 'application/json';\n    m.payload = { content: r.text };\n} else if (fmt === 'text') {              // ntfy.sh and similar: plain-text body\n    m.headers['content-type'] = 'text/plain; charset=utf-8';\n    m.headers.title = oneLine(r.title);\n    m.payload = r.text;\n} else {\n    m.headers['content-type'] = 'application/json';\n    m.payload = {\n        source: 'manufaction', event: r.kind, severity: r.severity, site: r.site_code,\n        asset: r.asset_code, title: r.title, message: r.text,\n        work_request: r.work_request, reason_code: r.reason_code, occurred_at: r.created_at,\n    };\n}\nreturn m;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 120,
+        "wires": [
+            [
+                "ntf_req"
+            ]
+        ]
+    },
+    {
+        "id": "ntf_req",
+        "type": "http request",
+        "z": "tab_notify",
+        "name": "POST to webhook",
+        "method": "use",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 810,
+        "y": 120,
+        "wires": [
+            [
+                "ntf_ok"
+            ]
+        ]
+    },
+    {
+        "id": "ntf_ok",
+        "type": "function",
+        "z": "tab_notify",
+        "name": "Record result",
+        "func": "// The webhook answered. Record the outcome so a failed alert is retried and a delivered one is not.\nconst db = global.get('db');\nconst ok = msg.statusCode >= 200 && msg.statusCode < 300;\nif (!ok) node.warn('webhook returned HTTP ' + msg.statusCode + ' for notification ' + msg.notification_id);\nawait db.query(\n    `UPDATE mf.notifications\n        SET delivered_at = CASE WHEN $2 THEN NOW() ELSE delivered_at END,\n            delivery_attempts = delivery_attempts + 1,\n            last_attempt_at = NOW(),\n            last_error = CASE WHEN $2 THEN NULL ELSE left($3, 200) END\n      WHERE id = $1 AND delivered_at IS NULL`,\n    [msg.notification_id, ok, ok ? null : 'HTTP ' + msg.statusCode]);\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1010,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ntf_catch",
+        "type": "catch",
+        "z": "tab_notify",
+        "name": "errors on this tab",
+        "scope": null,
+        "uncaught": false,
+        "x": 150,
+        "y": 240,
+        "wires": [
+            [
+                "ntf_err"
+            ]
+        ]
+    },
+    {
+        "id": "ntf_err",
+        "type": "function",
+        "z": "tab_notify",
+        "name": "Record failure",
+        "func": "// The webhook could not be reached (DNS, refused, timeout). Keep the message short and never log the URL:\n// Slack and Teams webhook URLs contain a secret token.\nconst db = global.get('db');\nif (msg.notification_id == null) return null;\nconst why = String((msg.error && msg.error.message) || 'request failed').replace(/https?:\\/\\/\\S+/g, '[url]').slice(0, 150);\nnode.warn('webhook send failed for notification ' + msg.notification_id + ': ' + why);\nawait db.query(\n    `UPDATE mf.notifications\n        SET delivery_attempts = delivery_attempts + 1, last_attempt_at = NOW(), last_error = left($2, 200)\n      WHERE id = $1 AND delivered_at IS NULL`, [msg.notification_id, why]);\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 240,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "tab_erp",
+        "type": "tab",
+        "label": "06 Demo ERP",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "c_erp",
+        "type": "comment",
+        "z": "tab_erp",
+        "name": "ERP -> Manufaction: release an order to every idle machine",
+        "info": "Stands in for a customer ERP. It releases work orders through the public REST API and receives the production receipt when an order completes. Replace it with a real connector (SAP, Plex, Odoo ...) or switch it off with DEMO_ERP_ENABLED=false.",
+        "x": 170,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "erp_tick",
+        "type": "inject",
+        "z": "tab_erp",
+        "name": "every 20 s",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "20",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "15",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "erp_orders"
+            ]
+        ]
+    },
+    {
+        "id": "erp_orders",
+        "type": "function",
+        "z": "tab_erp",
+        "name": "Build orders",
+        "func": "// DEMO ERP: stands in for a customer ERP. Every 20 s, any machine that is online and has no open\n// order gets a new work order, released through the public REST API (the same call a real ERP would make).\n// Order size depends on the machine type. Switch off with DEMO_ERP_ENABLED=false in .env.\nif (env.get('DEMO_ERP_ENABLED') === 'false') return null;\nconst db = global.get('db');\nconst lib = global.get('lib');\n\nconst SIZE = { press: [30, 60], cnc: [8, 16], assembly: [12, 24] };\nconst rows = (await db.query(\n    `SELECT s.site_code, a.asset_code, a.asset_type, a.default_part_number AS part_number, a.status, a.last_seen_at\n       FROM mf.assets a JOIN mf.sites s ON s.id = a.site_id\n      WHERE NOT EXISTS (SELECT 1 FROM mf.production_orders o\n                         WHERE o.asset_id = a.id AND o.status IN ('released','running'))`)).rows\n    .filter((r) => lib.effectiveStatus(r.status, r.last_seen_at) !== 'offline' && r.part_number);\n\nconst stamp = new Date().toISOString().slice(2, 10).replace(/-/g, '');\nreturn [rows.map((a) => {\n    const [lo, hi] = SIZE[a.asset_type] || [10, 20];\n    return {\n        method: 'POST', url: 'http://127.0.0.1:1880/api/v1/production-orders',\n        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + env.get('MF_API_TOKEN') },\n        payload: {\n            site: a.site_code, asset: a.asset_code, part_number: a.part_number,\n            order_number: `MO-${stamp}-${Math.floor(Math.random() * 9000 + 1000)}`,\n            target_quantity: Math.floor(Math.random() * (hi - lo + 1)) + lo,\n            source_system: 'DEMO-ERP',\n        },\n    };\n})];",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 120,
+        "wires": [
+            [
+                "erp_req"
+            ]
+        ]
+    },
+    {
+        "id": "erp_req",
+        "type": "http request",
+        "z": "tab_erp",
+        "name": "POST /api/v1/production-orders",
+        "method": "use",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 600,
+        "y": 120,
+        "wires": [
+            [
+                "erp_dbg"
+            ]
+        ]
+    },
+    {
+        "id": "erp_dbg",
+        "type": "debug",
+        "z": "tab_erp",
+        "name": "order released",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 840,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "c_erp2",
+        "type": "comment",
+        "z": "tab_erp",
+        "name": "Manufaction -> ERP: production receipts",
+        "info": "The receipt sent when an order completes.",
+        "x": 170,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "erp_in",
+        "type": "http in",
+        "z": "tab_erp",
+        "name": "POST /demo-erp/receipts",
+        "url": "/demo-erp/receipts",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 280,
+        "wires": [
+            [
+                "erp_rec"
+            ]
+        ]
+    },
+    {
+        "id": "erp_rec",
+        "type": "function",
+        "z": "tab_erp",
+        "name": "Record receipt",
+        "func": "// DEMO ERP: receives the production receipt that Manufaction sends when an order completes.\nconst db = global.get('db');\nconst lib = global.get('lib');\nif (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401; msg.payload = { error: 'unauthorized' };\n    return msg;\n}\nconst p = (msg.payload && typeof msg.payload === 'object') ? msg.payload : {};\nif (!p.order_number) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'order_number required' }; return msg; }\nconst num = (v) => (Number.isInteger(Number(v)) ? Number(v) : null);\nconst r = await db.query(\n    `INSERT INTO demo_erp.production_receipts\n            (order_number, part_number, good_quantity, scrap_quantity, completed_at, payload)\n     VALUES ($1, $2, $3, $4, $5, $6::jsonb) RETURNING id`,\n    [String(p.order_number), p.part_number || null, num(p.good_quantity), num(p.scrap_quantity),\n     lib.parseTs(p.completed_at), JSON.stringify(p)]);\nmsg.statusCode = 201;\nmsg.payload = { ok: true, receipt_id: r.rows[0].id };\nnode.status({ fill: 'blue', shape: 'dot', text: `receipt ${r.rows[0].id}` });\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 280,
+        "wires": [
+            [
+                "erp_resp"
+            ]
+        ]
+    },
+    {
+        "id": "erp_resp",
+        "type": "http response",
+        "z": "tab_erp",
+        "name": "respond",
+        "statusCode": "",
+        "headers": {},
+        "x": 640,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "erp_catch",
+        "type": "catch",
+        "z": "tab_erp",
+        "name": "errors on this tab",
+        "scope": null,
+        "uncaught": false,
+        "x": 190,
+        "y": 360,
+        "wires": [
+            [
+                "erp_err"
+            ]
+        ]
+    },
+    {
+        "id": "erp_err",
+        "type": "function",
+        "z": "tab_erp",
+        "name": "500",
+        "func": "if (!msg.res) { node.warn(msg.error && msg.error.message); return null; }\nmsg.statusCode = 500; msg.payload = { error: 'internal_error' };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 360,
+        "wires": [
+            [
+                "erp_resp"
+            ]
+        ]
+    },
+    {
+        "id": "tab_house",
+        "type": "tab",
+        "label": "07 Housekeeping",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "c_house",
+        "type": "comment",
+        "z": "tab_house",
+        "name": "Nightly clean-up",
+        "info": "Deletes raw telemetry older than the 'telemetry_keep_days' setting.",
+        "x": 170,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "purge_tick",
+        "type": "inject",
+        "z": "tab_house",
+        "name": "daily",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "86400",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "60",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "purge_fn"
+            ]
+        ]
+    },
+    {
+        "id": "purge_fn",
+        "type": "function",
+        "z": "tab_house",
+        "name": "Purge old telemetry",
+        "func": "// Nightly housekeeping: delete raw telemetry older than the \"telemetry_keep_days\" setting.\nconst db = global.get('db');\nconst lib = global.get('lib');\nconst days = Number(lib.cfg().telemetry_keep_days) || 7;\nconst r = await db.query(`DELETE FROM mf.telemetry WHERE recorded_at < NOW() - make_interval(days => $1::int)`, [days]);\nnode.status({ text: `purged ${r.rowCount} rows (older than ${days} days) @ ${new Date().toLocaleTimeString()}` });\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    }
+]

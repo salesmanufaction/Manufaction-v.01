@@ -1,11 +1,13 @@
 # Manufaction front door. The ONLY service published to the internet (ports 80/443).
 #
 #  /api/v1/health        public (for uptime monitors)
-#  /api/*  + Bearer      machine-to-machine clients (ERP, MES, edge); Node-RED validates the token
+#  /api/*  + Bearer      machine-to-machine clients (ERP, MES, edge); the CORE flows validate the token
 #  /api/*  (browser)     basic auth, then Caddy swaps in the API token before proxying
-#  /                     plant dashboard (static), basic auth
+#  /dashboard*           the plant dashboard (STUDIO), basic auth ("viewer" login)
+#  /studio*              the STUDIO editor, protected by its own Node-RED login (customer admin / owner)
+#  /                     redirects to the dashboard
 #
-# The Node-RED editor is never proxied. Reach it with an SSH tunnel (see README).
+# The CORE editor is never proxied. Reach it with an SSH tunnel (see README).
 
 {
 	email {$MF_ACME_EMAIL}
@@ -17,35 +19,45 @@
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options nosniff
-		X-Frame-Options DENY
+		X-Frame-Options SAMEORIGIN
 		Referrer-Policy no-referrer
 		-Server
 	}
 
 	handle /api/v1/health {
-		reverse_proxy nodered:1880
+		reverse_proxy core:1880
 	}
 
 	handle /api/* {
 		@bearer header_regexp Authorization ^Bearer\s.+$
 		handle @bearer {
-			reverse_proxy nodered:1880
+			reverse_proxy core:1880
 		}
 		handle {
 			basic_auth {
 				{$MF_BASIC_USER} {$MF_BASIC_HASH}
 			}
-			reverse_proxy nodered:1880 {
+			reverse_proxy core:1880 {
 				header_up Authorization "Bearer {$MF_API_TOKEN}"
 			}
 		}
+	}
+
+	handle /dashboard* {
+		basic_auth {
+			{$MF_BASIC_USER} {$MF_BASIC_HASH}
+		}
+		reverse_proxy studio:1880
+	}
+
+	handle /studio* {
+		reverse_proxy studio:1880
 	}
 
 	handle {
 		basic_auth {
 			{$MF_BASIC_USER} {$MF_BASIC_HASH}
 		}
-		root * /srv
-		file_server
+		redir * /dashboard/overview 302
 	}
 }

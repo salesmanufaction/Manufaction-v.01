@@ -1,6 +1,10 @@
--- Manufaction v0.1 — canonical manufacturing data model
+-- Manufaction v2 — canonical manufacturing data model (tables only).
 -- Runs automatically on first start of an EMPTY postgres volume.
 -- Loosely aligned to ISA-95 levels: enterprise > site > area > asset.
+--
+-- v2 rule: the database is the data warehouse. It keeps the data and enforces integrity
+-- (types, keys, CHECKs, "one open order per machine"). ALL business logic (counting parts,
+-- opening downtime, raising alerts, shaping API answers) lives in the Node-RED flows.
 
 CREATE SCHEMA IF NOT EXISTS mf;
 CREATE SCHEMA IF NOT EXISTS demo_erp;
@@ -131,8 +135,7 @@ CREATE TABLE quality_events (
 CREATE INDEX quality_events_asset_time ON quality_events (asset_id, event_time DESC);
 
 -- ---------------------------------------------------------------- alerts & maintenance
--- Created by triggers on downtime_events (see 002_functions.sql). v0.1 records the work
--- request and shows it on the dashboard; real delivery (email/SMS/CMMS) is a v0.2 connector.
+-- Written by the core Node-RED flow "04 Alerts & Maintenance" when downtime opens or closes.
 CREATE SEQUENCE work_request_seq;
 
 CREATE TABLE maintenance_requests (
@@ -154,20 +157,43 @@ CREATE TABLE notifications (
     id                BIGSERIAL PRIMARY KEY,
     kind              VARCHAR(40) NOT NULL
                       CHECK (kind IN ('downtime_alert','maintenance_dispatched','recovered','test')),
-    severity          VARCHAR(20) NOT NULL CHECK (severity IN ('critical','info','success')),
+    severity          VARCHAR(20) NOT NULL CHECK (severity IN ('critical','warning','info','success')),
     asset_id          UUID REFERENCES assets(id),
     downtime_event_id BIGINT REFERENCES downtime_events(id) ON DELETE CASCADE,
     title             VARCHAR(200) NOT NULL,
     message           VARCHAR(500),
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     seeded            BOOLEAN NOT NULL DEFAULT FALSE,
-    -- outbound delivery (webhook), driven by Node-RED tab 05; see mf.pending_deliveries()
+    -- outbound delivery (webhook), driven by core flow "05 Notifications"
     delivered_at      TIMESTAMPTZ,
     delivery_attempts INTEGER NOT NULL DEFAULT 0,
     last_attempt_at   TIMESTAMPTZ,
     last_error        VARCHAR(200)
 );
 CREATE INDEX notifications_time ON notifications (created_at DESC, id DESC);
+
+-- ---------------------------------------------------------------- configuration
+-- Rules and tuning values the flows read at run time. The customer edits these from the
+-- Studio "Settings" page; no code or flow change needed.
+CREATE TABLE settings (
+    key         VARCHAR(100) PRIMARY KEY,
+    value       JSONB NOT NULL,
+    description VARCHAR(300),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_by  VARCHAR(100)
+);
+
+-- Fault catalogue: what a reason code means, how serious it is, and who gets the work request.
+CREATE TABLE reason_codes (
+    code        VARCHAR(100) PRIMARY KEY,
+    description VARCHAR(255) NOT NULL,
+    asset_type  VARCHAR(100),                       -- NULL = applies to every type of machine
+    severity    VARCHAR(20) NOT NULL DEFAULT 'critical'
+                CHECK (severity IN ('critical','warning','info')),
+    assigned_to VARCHAR(100),                       -- NULL = the "default_assignee" setting
+    active      BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- ---------------------------------------------------------------- telemetry
 -- Plain table for v0.1. When volume grows, move to TimescaleDB or partitioning.

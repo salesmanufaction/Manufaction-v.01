@@ -1,6 +1,6 @@
-# Manufaction v0.1 — cloud stack + virtual factory
-# Only Caddy (80/443) is reachable from the internet. Everything else stays on the
-# private "manufaction" network. The Node-RED editor is bound to 127.0.0.1 on the host.
+# Manufaction v2 — two Node-RED instances: CORE (engine, owner-only) and STUDIO (customer dashboard + settings).
+# Only Caddy (80/443) is reachable from the internet. Everything else stays on the private "manufaction" network.
+# The CORE editor is bound to 127.0.0.1 on the host.
 
 services:
 
@@ -12,6 +12,7 @@ services:
       POSTGRES_DB: manufaction
       POSTGRES_USER: manufaction
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      STUDIO_DB_PASSWORD: ${STUDIO_DB_PASSWORD:?set STUDIO_DB_PASSWORD in .env}
       TZ: ${TZ:-America/New_York}
     volumes:
       - postgres_data:/var/lib/postgresql          # postgres 18+ layout
@@ -37,22 +38,23 @@ services:
     networks: [manufaction]
     # no "ports:" on purpose — 1883 is internal only
 
-  nodered:
-    build: ./nodered
-    image: manufaction/nodered:0.1.0
-    container_name: manufaction-nodered
+  # CORE: the engine. MQTT ingestion, order counting, downtime/alert rules, notifications, REST API.
+  # Owner-only: its editor is bound to 127.0.0.1 and has its own owner login.
+  core:
+    build: ./core
+    image: manufaction/core:2.0.0
+    container_name: manufaction-core
     restart: unless-stopped
     environment:
       TZ: ${TZ:-America/New_York}
-      MF_VERSION: "0.1.0"
+      MF_BRAND_NAME: ${MF_BRAND_NAME:-Manufaction}
       MF_API_TOKEN: ${MF_API_TOKEN:?set MF_API_TOKEN in .env}
-      MF_TELEMETRY_KEEP_DAYS: ${MF_TELEMETRY_KEEP_DAYS:-7}
       DEMO_ERP_ENABLED: ${DEMO_ERP_ENABLED:-true}
       MF_NOTIFY_WEBHOOK_URL: ${MF_NOTIFY_WEBHOOK_URL:-}
       MF_NOTIFY_FORMAT: ${MF_NOTIFY_FORMAT:-json}
       MF_NOTIFY_BEARER_TOKEN: ${MF_NOTIFY_BEARER_TOKEN:-}
-      NODE_RED_ADMIN_USER: ${NODE_RED_ADMIN_USER:-admin}
-      NODE_RED_ADMIN_HASH: ${NODE_RED_ADMIN_HASH:?set NODE_RED_ADMIN_HASH in .env}
+      CORE_ADMIN_USER: ${CORE_ADMIN_USER:-owner}
+      CORE_ADMIN_HASH: ${CORE_ADMIN_HASH:?set CORE_ADMIN_HASH in .env}
       PGHOST: postgres
       PGPORT: "5432"
       PGDATABASE: manufaction
@@ -62,12 +64,39 @@ services:
       MQTT_NODERED_USER: nodered
       MQTT_NODERED_PASSWORD: ${MQTT_NODERED_PASSWORD}
     volumes:
-      - ./nodered/data:/data                       # flows.json lives in Git
+      - ./core/data:/data                          # flows.json lives in Git
     ports:
-      - "127.0.0.1:1880:1880"                      # editor: SSH tunnel only, never public
+      - "127.0.0.1:1880:1880"                      # owner editor: SSH tunnel only, never public
     depends_on:
       postgres: { condition: service_healthy }
       mqtt: { condition: service_started }
+    networks: [manufaction]
+
+  # STUDIO: the customer's Node-RED. Dashboard (/dashboard) and settings pages; editor at /studio.
+  # Connects to the database as the restricted user mf_studio.
+  studio:
+    build: ./studio
+    image: manufaction/studio:2.0.0
+    container_name: manufaction-studio
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-America/New_York}
+      MF_BRAND_NAME: ${MF_BRAND_NAME:-Manufaction}
+      STUDIO_ADMIN_USER: ${STUDIO_ADMIN_USER:-customer}
+      STUDIO_ADMIN_HASH: ${STUDIO_ADMIN_HASH:?set STUDIO_ADMIN_HASH in .env}
+      CORE_ADMIN_USER: ${CORE_ADMIN_USER:-owner}
+      CORE_ADMIN_HASH: ${CORE_ADMIN_HASH}
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: manufaction
+      PGUSER: mf_studio
+      PGPASSWORD: ${STUDIO_DB_PASSWORD:?set STUDIO_DB_PASSWORD in .env}
+    volumes:
+      - ./studio/data:/data
+    ports:
+      - "127.0.0.1:1881:1880"                      # direct access for the owner (SSH tunnel)
+    depends_on:
+      postgres: { condition: service_healthy }
     networks: [manufaction]
 
   caddy:
@@ -86,10 +115,9 @@ services:
       - "443:443/udp"
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./caddy/site:/srv:ro
       - caddy_data:/data
       - caddy_config:/config
-    depends_on: [nodered]
+    depends_on: [core, studio]
     networks: [manufaction]
 
   # Plays the role of a Manufaction Edge device until real hardware exists.
@@ -110,7 +138,7 @@ services:
       SIM_DEMO_MODE: ${SIM_DEMO_MODE:-false}
       SIM_DEMO_FAULT_EVERY: ${SIM_DEMO_FAULT_EVERY:-75}
       SIM_DEMO_FAULT_SECONDS: ${SIM_DEMO_FAULT_SECONDS:-30}
-    depends_on: [mqtt, nodered]
+    depends_on: [mqtt, core]
     networks: [manufaction]
 
 volumes:

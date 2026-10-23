@@ -144,7 +144,7 @@ BEGIN
                         v_req || ' sent to Maintenance on-call for ' || a.asset_code,
                         v_dt_at + INTERVAL '1 second', TRUE),
                        ('recovered', 'success', a.id, v_dt_id, a.asset_code || ' back in production',
-                        'Down for ' || mf.fmt_duration(v_dt_len),
+                        'Down for ' || (v_dt_len / 60) || 'm ' || lpad((v_dt_len % 60)::text, 2, '0') || 's',
                         v_dt_at + make_interval(secs => v_dt_len), TRUE);
             END IF;
         END LOOP;

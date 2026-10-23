@@ -1,0 +1,6 @@
+{
+  "pg_cfg": {
+    "user": "${PGUSER}",
+    "password": "${PGPASSWORD}"
+  }
+}

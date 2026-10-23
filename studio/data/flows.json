@@ -1,0 +1,2393 @@
+[
+  {
+    "id": "pg_cfg",
+    "type": "postgreSQLConfig",
+    "name": "Manufaction database (read-mostly)",
+    "host": "${PGHOST}",
+    "hostFieldType": "str",
+    "port": "5432",
+    "portFieldType": "num",
+    "database": "${PGDATABASE}",
+    "databaseFieldType": "str",
+    "ssl": "false",
+    "sslFieldType": "bool",
+    "applicationName": "manufaction-studio",
+    "applicationNameType": "str",
+    "max": 5,
+    "maxFieldType": "num",
+    "idle": 1000,
+    "idleFieldType": "num",
+    "connectionTimeout": 10000,
+    "connectionTimeoutFieldType": "num",
+    "user": "${PGUSER}",
+    "userFieldType": "str",
+    "password": "${PGPASSWORD}",
+    "passwordFieldType": "str"
+  },
+  {
+    "id": "ui_base",
+    "type": "ui-base",
+    "name": "Manufaction",
+    "path": "/dashboard",
+    "appIcon": "",
+    "includeClientData": true,
+    "acceptsClientConfig": [
+      "ui-notification",
+      "ui-control"
+    ],
+    "showPathInSidebar": false,
+    "headerContent": "page",
+    "navigationStyle": "default",
+    "titleBarStyle": "default",
+    "showReconnectNotification": true,
+    "notificationDisplayTime": 1,
+    "showDisconnectNotification": true,
+    "allowInstall": false
+  },
+  {
+    "id": "ui_theme",
+    "type": "ui-theme",
+    "name": "Brand theme",
+    "colors": {
+      "surface": "#ffffff",
+      "primary": "#0f766e",
+      "bgPage": "#f1f5f4",
+      "groupBg": "#ffffff",
+      "groupOutline": "#d5dedc"
+    },
+    "sizes": {
+      "density": "default",
+      "pagePadding": "12px",
+      "groupGap": "12px",
+      "groupBorderRadius": "8px",
+      "widgetGap": "12px"
+    }
+  },
+  {
+    "id": "pg_over",
+    "type": "ui-page",
+    "name": "Plant overview",
+    "ui": "ui_base",
+    "path": "/overview",
+    "icon": "factory",
+    "layout": "grid",
+    "theme": "ui_theme",
+    "breakpoints": [
+      {
+        "name": "Default",
+        "px": 0,
+        "cols": 3
+      },
+      {
+        "name": "Tablet",
+        "px": 576,
+        "cols": 6
+      },
+      {
+        "name": "Small Desktop",
+        "px": 768,
+        "cols": 9
+      },
+      {
+        "name": "Desktop",
+        "px": 1024,
+        "cols": 12
+      }
+    ],
+    "order": 1,
+    "className": "",
+    "visible": true,
+    "disabled": false
+  },
+  {
+    "id": "pg_admin",
+    "type": "ui-page",
+    "name": "Settings",
+    "ui": "ui_base",
+    "path": "/settings",
+    "icon": "settings",
+    "layout": "grid",
+    "theme": "ui_theme",
+    "breakpoints": [
+      {
+        "name": "Default",
+        "px": 0,
+        "cols": 3
+      },
+      {
+        "name": "Tablet",
+        "px": 576,
+        "cols": 6
+      },
+      {
+        "name": "Small Desktop",
+        "px": 768,
+        "cols": 9
+      },
+      {
+        "name": "Desktop",
+        "px": 1024,
+        "cols": 12
+      }
+    ],
+    "order": 2,
+    "className": "",
+    "visible": true,
+    "disabled": false
+  },
+  {
+    "id": "tab_over",
+    "type": "tab",
+    "label": "Plant overview",
+    "disabled": false,
+    "info": "Everything on the Plant overview page. Each row of nodes is one panel: a timer asks the database a question, a function shapes the answer, and a widget draws it. To change a panel, edit its SQL (the 'Query' function) or its look (the template). Nothing here can change production data: this instance logs in to the database with a restricted user."
+  },
+  {
+    "id": "c_over",
+    "type": "comment",
+    "z": "tab_over",
+    "name": "Plant overview: one row = one panel",
+    "info": "Timer -> Query -> Run SQL -> Shape -> Widget.\nDouble-click any node to change it. Deploy (top right) makes the change live for everyone.",
+    "x": 200,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "g_head",
+    "type": "ui-group",
+    "name": "Plant",
+    "page": "pg_over",
+    "width": 12,
+    "height": 1,
+    "order": 0,
+    "showTitle": false,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "g_kpi",
+    "type": "ui-group",
+    "name": "Today",
+    "page": "pg_over",
+    "width": 12,
+    "height": 1,
+    "order": 1,
+    "showTitle": false,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "g_alert",
+    "type": "ui-group",
+    "name": "Alerts",
+    "page": "pg_over",
+    "width": 12,
+    "height": 1,
+    "order": 2,
+    "showTitle": false,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "g_mach",
+    "type": "ui-group",
+    "name": "Machines",
+    "page": "pg_over",
+    "width": 12,
+    "height": 1,
+    "order": 3,
+    "showTitle": false,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "g_dt",
+    "type": "ui-group",
+    "name": "Downtime today",
+    "page": "pg_over",
+    "width": 6,
+    "height": 1,
+    "order": 4,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "g_ord",
+    "type": "ui-group",
+    "name": "Production orders",
+    "page": "pg_over",
+    "width": 6,
+    "height": 1,
+    "order": 5,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "g_wr",
+    "type": "ui-group",
+    "name": "Maintenance work requests",
+    "page": "pg_over",
+    "width": 6,
+    "height": 1,
+    "order": 6,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "g_rcpt",
+    "type": "ui-group",
+    "name": "Receipts sent to the ERP",
+    "page": "pg_over",
+    "width": 6,
+    "height": 1,
+    "order": 7,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "g_feed",
+    "type": "ui-group",
+    "name": "Recent notices",
+    "page": "pg_over",
+    "width": 12,
+    "height": 1,
+    "order": 8,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "plant_i",
+    "type": "inject",
+    "z": "tab_over",
+    "name": "Every 30 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "30",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 90,
+    "wires": [
+      [
+        "plant_q"
+      ]
+    ]
+  },
+  {
+    "id": "plant_q",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Query: plant",
+    "func": "// Plant name shown at the top of the dashboard (Settings page: plant_name)\nmsg.query = `SELECT value #>> '{}' AS name FROM mf.settings WHERE key = 'plant_name'`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 90,
+    "wires": [
+      [
+        "plant_p"
+      ]
+    ]
+  },
+  {
+    "id": "plant_p",
+    "type": "postgresql",
+    "z": "tab_over",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 90,
+    "wires": [
+      [
+        "plant_s"
+      ]
+    ]
+  },
+  {
+    "id": "plant_s",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Shape for the screen",
+    "func": "msg.payload = (msg.payload && msg.payload[0] && msg.payload[0].name) || 'Plant overview';\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 90,
+    "wires": [
+      [
+        "plant_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-text",
+    "group": "g_head",
+    "order": 1,
+    "width": 12,
+    "height": 1,
+    "name": "Plant name",
+    "label": "",
+    "format": "{{msg.payload}}",
+    "layout": "row-left",
+    "style": true,
+    "font": "",
+    "fontSize": 20,
+    "color": "#0f766e",
+    "wrapText": false,
+    "className": "",
+    "value": "payload",
+    "valueType": "msg",
+    "id": "plant_w",
+    "z": "tab_over",
+    "x": 910,
+    "y": 90,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "kpis_i",
+    "type": "inject",
+    "z": "tab_over",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 160,
+    "wires": [
+      [
+        "kpis_q"
+      ]
+    ]
+  },
+  {
+    "id": "kpis_q",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Query: kpis",
+    "func": "// Headline numbers for the four tiles at the top of the Plant overview page\nmsg.query = `\nWITH plant AS (\n  SELECT (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1),\nst AS (SELECT a.id, CASE WHEN a.last_seen_at IS NULL OR a.last_seen_at < now() - make_interval(secs => COALESCE((SELECT (value #>> '{}')::int FROM mf.settings WHERE key = 'offline_after_seconds'), 30)) THEN 'offline' ELSE a.status END AS eff FROM mf.assets a)\nSELECT (SELECT count(*) FROM st)::int AS total,\n       (SELECT count(*) FROM st WHERE eff = 'running')::int AS running,\n       (SELECT count(*) FROM st WHERE eff IN ('faulted','stopped'))::int AS down_now,\n       (SELECT count(*) FROM mf.quality_events q, plant p WHERE q.event_time >= p.day_start AND q.result = 'good')::int AS good,\n       (SELECT count(*) FROM mf.quality_events q, plant p WHERE q.event_time >= p.day_start AND q.result <> 'good')::int AS scrap,\n       (SELECT COALESCE(ROUND((SUM(EXTRACT(EPOCH FROM (COALESCE(d.ended_at, now()) - GREATEST(d.started_at, p.day_start)))) / 60.0)::numeric, 1), 0)\n          FROM mf.downtime_events d, plant p WHERE COALESCE(d.ended_at, now()) >= p.day_start)::float AS downtime_min,\n       (SELECT count(*) FROM mf.maintenance_requests WHERE status = 'open')::int AS open_wr,\n       COALESCE((SELECT (value #>> '{}')::float FROM mf.settings WHERE key = 'yield_target_pct'), 95) AS yield_target\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 160,
+    "wires": [
+      [
+        "kpis_p"
+      ]
+    ]
+  },
+  {
+    "id": "kpis_p",
+    "type": "postgresql",
+    "z": "tab_over",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 160,
+    "wires": [
+      [
+        "kpis_s"
+      ]
+    ]
+  },
+  {
+    "id": "kpis_s",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Shape for the screen",
+    "func": "msg.payload = (msg.payload && msg.payload[0]) || {};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 160,
+    "wires": [
+      [
+        "kpis_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-template",
+    "group": "g_kpi",
+    "page": "",
+    "ui": "",
+    "name": "KPI tiles",
+    "order": 1,
+    "width": 12,
+    "height": 0,
+    "head": "",
+    "format": "<template>\n  <div class=\"mf-kpis\">\n    <div class=\"mf-kpi\">\n      <div class=\"mf-kpi-label\">Machines running</div>\n      <div class=\"mf-kpi-value\">{{ k.running }} / {{ k.total }}</div>\n      <div class=\"mf-kpi-sub\">{{ k.down_now }} faulted or stopped</div>\n    </div>\n    <div class=\"mf-kpi\" :class=\"yieldClass\">\n      <div class=\"mf-kpi-label\">First-pass yield today</div>\n      <div class=\"mf-kpi-value\">{{ yieldText }}</div>\n      <div class=\"mf-kpi-sub\">{{ k.good }} good \u00b7 {{ k.scrap }} scrap \u00b7 target {{ k.yield_target }}%</div>\n    </div>\n    <div class=\"mf-kpi\" :class=\"{ 'mf-bad': k.downtime_min > 0 }\">\n      <div class=\"mf-kpi-label\">Downtime today</div>\n      <div class=\"mf-kpi-value\">{{ k.downtime_min }} min</div>\n      <div class=\"mf-kpi-sub\">all machines</div>\n    </div>\n    <div class=\"mf-kpi\" :class=\"{ 'mf-bad': k.open_wr > 0 }\">\n      <div class=\"mf-kpi-label\">Open work requests</div>\n      <div class=\"mf-kpi-value\">{{ k.open_wr }}</div>\n      <div class=\"mf-kpi-sub\">waiting for maintenance</div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    k: function () {\n      var p = this.msg && this.msg.payload\n      return (p && typeof p === 'object' && !Array.isArray(p)) ? p : { running: 0, total: 0, down_now: 0, good: 0, scrap: 0, yield_target: 95, downtime_min: 0, open_wr: 0 }\n    },\n    yieldPct: function () {\n      var t = this.k.good + this.k.scrap\n      return t ? Math.round(1000 * this.k.good / t) / 10 : null\n    },\n    yieldText: function () { return this.yieldPct === null ? '\u2013' : this.yieldPct + ' %' },\n    yieldClass: function () {\n      if (this.yieldPct === null) return {}\n      return this.yieldPct >= this.k.yield_target ? { 'mf-good': true } : { 'mf-warn': true }\n    }\n  }\n}\n</script>\n\n<style>\n.mf-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }\n.mf-kpi { border-radius: 8px; padding: 14px 16px; background: rgba(var(--v-theme-on-group-background), 0.06); border-left: 4px solid rgba(var(--v-theme-on-group-background), 0.25); }\n.mf-kpi-label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }\n.mf-kpi-value { font-size: 34px; font-weight: 700; line-height: 1.15; margin: 4px 0; }\n.mf-kpi-sub { font-size: 12px; opacity: .65; }\n.mf-kpi.mf-good { border-left-color: #22c55e; }\n.mf-kpi.mf-warn { border-left-color: #f59e0b; }\n.mf-kpi.mf-bad { border-left-color: #ef4444; }\n</style>",
+    "storeOutMessages": true,
+    "passthru": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "className": "",
+    "id": "kpis_w",
+    "z": "tab_over",
+    "x": 910,
+    "y": 160,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "alerts_i",
+    "type": "inject",
+    "z": "tab_over",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 230,
+    "wires": [
+      [
+        "alerts_q"
+      ]
+    ]
+  },
+  {
+    "id": "alerts_q",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Query: alerts",
+    "func": "// Machines that are down right now (the red banner)\nmsg.query = `\nSELECT a.asset_code, a.name, d.status,\n       COALESCE(d.reason_description, d.reason_code, 'No reason reported') AS reason,\n       d.started_at, r.request_number AS work_request, r.assigned_to\n  FROM mf.downtime_events d\n  JOIN mf.assets a ON a.id = d.asset_id\n  LEFT JOIN mf.maintenance_requests r ON r.downtime_event_id = d.id\n WHERE d.ended_at IS NULL\n   AND d.status IN (SELECT jsonb_array_elements_text(value) FROM mf.settings WHERE key = 'alert_statuses')\n ORDER BY d.started_at\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 230,
+    "wires": [
+      [
+        "alerts_p"
+      ]
+    ]
+  },
+  {
+    "id": "alerts_p",
+    "type": "postgresql",
+    "z": "tab_over",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 230,
+    "wires": [
+      [
+        "alerts_s"
+      ]
+    ]
+  },
+  {
+    "id": "alerts_s",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Shape for the screen",
+    "func": "msg.payload = msg.payload || [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 230,
+    "wires": [
+      [
+        "alerts_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-template",
+    "group": "g_alert",
+    "page": "",
+    "ui": "",
+    "name": "Alert banner",
+    "order": 1,
+    "width": 12,
+    "height": 0,
+    "head": "",
+    "format": "<template>\n  <div>\n    <div v-if=\"alerts.length === 0\" class=\"mf-clear\">All clear: no machine is down.</div>\n    <div v-for=\"a in alerts\" :key=\"a.asset_code + a.started_at\" class=\"mf-alert\">\n      <div class=\"mf-alert-main\">\n        <b>{{ a.asset_code }}</b> {{ a.status === 'faulted' ? 'FAULT' : 'STOPPED' }}: {{ a.reason }}\n      </div>\n      <div class=\"mf-alert-sub\">\n        since {{ since(a.started_at) }}\n        <span v-if=\"a.work_request\"> \u00b7 work request <b>{{ a.work_request }}</b> sent to {{ a.assigned_to }}</span>\n      </div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    alerts: function () { return (this.msg && Array.isArray(this.msg.payload)) ? this.msg.payload : [] }\n  },\n  methods: {\n    since: function (iso) {\n      var s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000))\n      if (s < 60) return s + ' s ago'\n      if (s < 3600) return Math.floor(s / 60) + ' min ago'\n      return Math.floor(s / 3600) + ' h ' + Math.floor((s % 3600) / 60) + ' min ago'\n    }\n  }\n}\n</script>\n\n<style>\n.mf-clear { padding: 10px 14px; border-radius: 8px; background: rgba(34, 197, 94, .14); border-left: 4px solid #22c55e; }\n.mf-alert { padding: 10px 14px; margin-bottom: 8px; border-radius: 8px; background: rgba(239, 68, 68, .16); border-left: 4px solid #ef4444; }\n.mf-alert-main { font-size: 16px; }\n.mf-alert-sub { font-size: 12px; opacity: .8; margin-top: 2px; }\n</style>",
+    "storeOutMessages": true,
+    "passthru": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "className": "",
+    "id": "alerts_w",
+    "z": "tab_over",
+    "x": 910,
+    "y": 230,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "machines_i",
+    "type": "inject",
+    "z": "tab_over",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 300,
+    "wires": [
+      [
+        "machines_q"
+      ]
+    ]
+  },
+  {
+    "id": "machines_q",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Query: machines",
+    "func": "// One row per machine: status, latest readings, active order, open downtime (the machine cards)\nmsg.query = `\nSELECT a.asset_code, a.name, a.asset_type, ar.name AS area, CASE WHEN a.last_seen_at IS NULL OR a.last_seen_at < now() - make_interval(secs => COALESCE((SELECT (value #>> '{}')::int FROM mf.settings WHERE key = 'offline_after_seconds'), 30)) THEN 'offline' ELSE a.status END AS status,\n       (SELECT COALESCE(json_agg(json_build_object('name', sg.signal_name,\n                 'value', COALESCE(to_json(sg.last_value_numeric), to_json(sg.last_value_text)),\n                 'unit', sg.unit) ORDER BY sg.signal_name), '[]'::json)\n          FROM mf.asset_signals sg WHERE sg.asset_id = a.id AND sg.signal_name <> 'cycle_count') AS signals,\n       (SELECT json_build_object('order_number', o.order_number, 'part_number', o.part_number,\n                 'completed', o.completed_quantity, 'target', o.target_quantity, 'scrap', o.scrap_quantity)\n          FROM mf.production_orders o WHERE o.asset_id = a.id AND o.status IN ('released','running')\n         ORDER BY o.released_at LIMIT 1) AS \"order\",\n       (SELECT json_build_object('reason', COALESCE(d.reason_description, d.reason_code, 'No reason reported'),\n                 'since', d.started_at,\n                 'work_request', (SELECT r.request_number FROM mf.maintenance_requests r WHERE r.downtime_event_id = d.id LIMIT 1))\n          FROM mf.downtime_events d WHERE d.asset_id = a.id AND d.ended_at IS NULL) AS downtime\n  FROM mf.assets a\n  LEFT JOIN mf.areas ar ON ar.id = a.area_id\n ORDER BY a.asset_code\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 300,
+    "wires": [
+      [
+        "machines_p"
+      ]
+    ]
+  },
+  {
+    "id": "machines_p",
+    "type": "postgresql",
+    "z": "tab_over",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 300,
+    "wires": [
+      [
+        "machines_s"
+      ]
+    ]
+  },
+  {
+    "id": "machines_s",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Shape for the screen",
+    "func": "// the template reads the column called \"order\" as m.order\nmsg.payload = msg.payload || [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 300,
+    "wires": [
+      [
+        "machines_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-template",
+    "group": "g_mach",
+    "page": "",
+    "ui": "",
+    "name": "Machine cards",
+    "order": 1,
+    "width": 12,
+    "height": 0,
+    "head": "",
+    "format": "<template>\n  <div class=\"mf-cards\">\n    <div v-for=\"m in machines\" :key=\"m.asset_code\" class=\"mf-card\" :class=\"'st-' + m.status\">\n      <div class=\"mf-card-head\">\n        <div>\n          <div class=\"mf-name\">{{ m.name }}</div>\n          <div class=\"mf-sub\">{{ m.asset_code }} \u00b7 {{ m.area }}</div>\n        </div>\n        <span class=\"mf-pill\">{{ m.status }}</span>\n      </div>\n      <div v-if=\"m.downtime\" class=\"mf-down\">\n        {{ m.downtime.reason }}<span v-if=\"m.downtime.work_request\"> \u00b7 {{ m.downtime.work_request }}</span>\n      </div>\n      <div class=\"mf-signals\">\n        <div v-for=\"s in m.signals\" :key=\"s.name\" class=\"mf-sig\">\n          <span>{{ label(s.name) }}</span><b>{{ show(s) }}</b>\n        </div>\n      </div>\n      <div v-if=\"m.order\" class=\"mf-order\">\n        <div class=\"mf-order-top\">\n          <span>{{ m.order.order_number }} \u00b7 {{ m.order.part_number }}</span>\n          <span>{{ m.order.completed }} / {{ m.order.target }}</span>\n        </div>\n        <div class=\"mf-bar\"><div class=\"mf-fill\" :style=\"{ width: pct(m.order) + '%' }\"></div></div>\n      </div>\n      <div v-else class=\"mf-noorder\">No active order</div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    machines: function () { return (this.msg && Array.isArray(this.msg.payload)) ? this.msg.payload : [] }\n  },\n  methods: {\n    label: function (n) { return String(n).replace(/_pct$/, ' %').replace(/_/g, ' ') },\n    show: function (s) {\n      var v = s.value\n      if (typeof v === 'number') v = Math.round(v * 10) / 10\n      var u = s.unit ? String(s.unit).replace('deg', '\u00b0') : ''\n      return u ? v + ' ' + u : v\n    },\n    pct: function (o) { return o.target ? Math.min(100, Math.round(100 * o.completed / o.target)) : 0 }\n  }\n}\n</script>\n\n<style>\n.mf-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }\n.mf-card { border-radius: 8px; padding: 14px; background: rgba(var(--v-theme-on-group-background), 0.06); border-top: 4px solid #64748b; }\n.mf-card.st-running { border-top-color: #22c55e; }\n.mf-card.st-idle { border-top-color: #38bdf8; }\n.mf-card.st-faulted { border-top-color: #ef4444; background: rgba(239, 68, 68, .12); }\n.mf-card.st-stopped { border-top-color: #f59e0b; }\n.mf-card.st-maintenance { border-top-color: #a855f7; }\n.mf-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }\n.mf-name { font-size: 18px; font-weight: 700; }\n.mf-sub { font-size: 12px; opacity: .65; }\n.mf-pill { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 3px 9px; border-radius: 999px; background: #64748b; color: #fff; }\n.st-running .mf-pill { background: #16a34a; }\n.st-idle .mf-pill { background: #0284c7; }\n.st-faulted .mf-pill { background: #dc2626; }\n.st-stopped .mf-pill { background: #d97706; }\n.st-maintenance .mf-pill { background: #9333ea; }\n.mf-down { margin-top: 8px; font-size: 13px; color: #fca5a5; }\n.mf-signals { margin: 10px 0; display: grid; gap: 4px; }\n.mf-sig { display: flex; justify-content: space-between; font-size: 13px; border-bottom: 1px solid rgba(var(--v-theme-on-group-background), 0.1); padding-bottom: 3px; }\n.mf-sig span { opacity: .7; text-transform: capitalize; }\n.mf-order-top { display: flex; justify-content: space-between; font-size: 12px; opacity: .85; margin-bottom: 4px; }\n.mf-bar { height: 8px; border-radius: 4px; background: rgba(var(--v-theme-on-group-background), 0.12); overflow: hidden; }\n.mf-fill { height: 100%; background: #38bdf8; transition: width .6s; }\n.mf-noorder { font-size: 12px; opacity: .55; }\n</style>",
+    "storeOutMessages": true,
+    "passthru": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "className": "",
+    "id": "machines_w",
+    "z": "tab_over",
+    "x": 910,
+    "y": 300,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "downtime_i",
+    "type": "inject",
+    "z": "tab_over",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 370,
+    "wires": [
+      [
+        "downtime_q"
+      ]
+    ]
+  },
+  {
+    "id": "downtime_q",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Query: downtime",
+    "func": "// Minutes of downtime today for each machine\nmsg.query = `\nWITH plant AS (\n  SELECT (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1)\nSELECT a.asset_code,\n       COALESCE(ROUND((SUM(EXTRACT(EPOCH FROM (COALESCE(d.ended_at, now()) - GREATEST(d.started_at, p.day_start)))) / 60.0)::numeric, 1), 0)::float AS minutes,\n       COUNT(d.id)::int AS events,\n       MODE() WITHIN GROUP (ORDER BY d.reason_code) AS top_reason\n  FROM mf.assets a\n  CROSS JOIN plant p\n  LEFT JOIN mf.downtime_events d ON d.asset_id = a.id AND COALESCE(d.ended_at, now()) >= p.day_start\n GROUP BY a.asset_code\n ORDER BY a.asset_code\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 370,
+    "wires": [
+      [
+        "downtime_p"
+      ]
+    ]
+  },
+  {
+    "id": "downtime_p",
+    "type": "postgresql",
+    "z": "tab_over",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 370,
+    "wires": [
+      [
+        "downtime_s"
+      ]
+    ]
+  },
+  {
+    "id": "downtime_s",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Shape for the screen",
+    "func": "msg.payload = msg.payload || [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 370,
+    "wires": [
+      [
+        "downtime_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-template",
+    "group": "g_dt",
+    "page": "",
+    "ui": "",
+    "name": "Downtime bars",
+    "order": 1,
+    "width": 6,
+    "height": 0,
+    "head": "",
+    "format": "<template>\n  <div>\n    <div v-for=\"r in rows\" :key=\"r.asset_code\" class=\"mf-dt-row\">\n      <div class=\"mf-dt-name\">{{ r.asset_code }}</div>\n      <div class=\"mf-dt-track\"><div class=\"mf-dt-fill\" :style=\"{ width: width(r) + '%' }\"></div></div>\n      <div class=\"mf-dt-val\">{{ r.minutes }} min</div>\n      <div class=\"mf-dt-why\">{{ r.events }} event{{ r.events === 1 ? '' : 's' }}<span v-if=\"r.top_reason\"> \u00b7 {{ r.top_reason }}</span></div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    rows: function () { return (this.msg && Array.isArray(this.msg.payload)) ? this.msg.payload : [] },\n    max: function () {\n      var m = 0\n      this.rows.forEach(function (r) { if (r.minutes > m) m = r.minutes })\n      return m || 1\n    }\n  },\n  methods: {\n    width: function (r) { return Math.round(100 * r.minutes / this.max) }\n  }\n}\n</script>\n\n<style>\n.mf-dt-row { display: grid; grid-template-columns: 110px 1fr 70px; gap: 8px; align-items: center; margin-bottom: 8px; }\n.mf-dt-name { font-size: 13px; font-weight: 600; }\n.mf-dt-track { height: 10px; border-radius: 5px; background: rgba(var(--v-theme-on-group-background), 0.12); overflow: hidden; }\n.mf-dt-fill { height: 100%; background: #ef4444; }\n.mf-dt-val { text-align: right; font-size: 13px; }\n.mf-dt-why { grid-column: 2 / 4; font-size: 11px; opacity: .6; margin-top: -4px; }\n</style>",
+    "storeOutMessages": true,
+    "passthru": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "className": "",
+    "id": "downtime_w",
+    "z": "tab_over",
+    "x": 910,
+    "y": 370,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "orders_i",
+    "type": "inject",
+    "z": "tab_over",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 440,
+    "wires": [
+      [
+        "orders_q"
+      ]
+    ]
+  },
+  {
+    "id": "orders_q",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Query: orders",
+    "func": "// Latest production orders\nmsg.query = `\nSELECT o.order_number, a.asset_code, o.part_number, o.completed_quantity, o.scrap_quantity,\n       o.target_quantity, o.status, o.released_at\n  FROM mf.production_orders o LEFT JOIN mf.assets a ON a.id = o.asset_id\n ORDER BY (o.status IN ('released','running')) DESC, o.released_at DESC\n LIMIT 10\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 440,
+    "wires": [
+      [
+        "orders_p"
+      ]
+    ]
+  },
+  {
+    "id": "orders_p",
+    "type": "postgresql",
+    "z": "tab_over",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 440,
+    "wires": [
+      [
+        "orders_s"
+      ]
+    ]
+  },
+  {
+    "id": "orders_s",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Shape for the screen",
+    "func": "const rows = msg.payload || [];\nmsg.payload = rows.map((o) => ({\n    Order: o.order_number,\n    Machine: o.asset_code,\n    Part: o.part_number,\n    Progress: `${o.completed_quantity} / ${o.target_quantity}`,\n    Scrap: o.scrap_quantity,\n    Status: o.status,\n}));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 440,
+    "wires": [
+      [
+        "orders_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-table",
+    "group": "g_ord",
+    "name": "Orders",
+    "label": "",
+    "order": 1,
+    "width": 6,
+    "height": 0,
+    "maxrows": 0,
+    "passthru": false,
+    "autocols": true,
+    "showSearch": true,
+    "deselect": true,
+    "selectionType": "none",
+    "columns": [],
+    "mobileBreakpoint": "sm",
+    "mobileBreakpointType": "defaults",
+    "action": "replace",
+    "className": "",
+    "id": "orders_w",
+    "z": "tab_over",
+    "x": 910,
+    "y": 440,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "workrequests_i",
+    "type": "inject",
+    "z": "tab_over",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 510,
+    "wires": [
+      [
+        "workrequests_q"
+      ]
+    ]
+  },
+  {
+    "id": "workrequests_q",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Query: workrequests",
+    "func": "// Latest maintenance work requests\nmsg.query = `\nSELECT r.request_number, a.asset_code, r.reason_code, r.assigned_to, r.status, r.opened_at, r.closed_at\n  FROM mf.maintenance_requests r JOIN mf.assets a ON a.id = r.asset_id\n ORDER BY r.opened_at DESC, r.id DESC LIMIT 8\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 510,
+    "wires": [
+      [
+        "workrequests_p"
+      ]
+    ]
+  },
+  {
+    "id": "workrequests_p",
+    "type": "postgresql",
+    "z": "tab_over",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 510,
+    "wires": [
+      [
+        "workrequests_s"
+      ]
+    ]
+  },
+  {
+    "id": "workrequests_s",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Shape for the screen",
+    "func": "const t = (v) => (v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');\nmsg.payload = (msg.payload || []).map((r) => ({\n    Request: r.request_number,\n    Machine: r.asset_code,\n    Reason: r.reason_code,\n    'Assigned to': r.assigned_to,\n    Status: r.status,\n    Opened: t(r.opened_at),\n    Closed: t(r.closed_at),\n}));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 510,
+    "wires": [
+      [
+        "workrequests_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-table",
+    "group": "g_wr",
+    "name": "Work requests",
+    "label": "",
+    "order": 1,
+    "width": 6,
+    "height": 0,
+    "maxrows": 0,
+    "passthru": false,
+    "autocols": true,
+    "showSearch": true,
+    "deselect": true,
+    "selectionType": "none",
+    "columns": [],
+    "mobileBreakpoint": "sm",
+    "mobileBreakpointType": "defaults",
+    "action": "replace",
+    "className": "",
+    "id": "workrequests_w",
+    "z": "tab_over",
+    "x": 910,
+    "y": 510,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "receipts_i",
+    "type": "inject",
+    "z": "tab_over",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 580,
+    "wires": [
+      [
+        "receipts_q"
+      ]
+    ]
+  },
+  {
+    "id": "receipts_q",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Query: receipts",
+    "func": "// Production receipts sent back to the ERP\nmsg.query = `\nSELECT order_number, part_number, good_quantity, scrap_quantity, received_at\n  FROM demo_erp.production_receipts ORDER BY received_at DESC LIMIT 6\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 580,
+    "wires": [
+      [
+        "receipts_p"
+      ]
+    ]
+  },
+  {
+    "id": "receipts_p",
+    "type": "postgresql",
+    "z": "tab_over",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 580,
+    "wires": [
+      [
+        "receipts_s"
+      ]
+    ]
+  },
+  {
+    "id": "receipts_s",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Shape for the screen",
+    "func": "const t = (v) => (v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');\nmsg.payload = (msg.payload || []).map((r) => ({\n    Order: r.order_number, Part: r.part_number, Good: r.good_quantity, Scrap: r.scrap_quantity, Received: t(r.received_at),\n}));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 580,
+    "wires": [
+      [
+        "receipts_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-table",
+    "group": "g_rcpt",
+    "name": "Receipts",
+    "label": "",
+    "order": 1,
+    "width": 6,
+    "height": 0,
+    "maxrows": 0,
+    "passthru": false,
+    "autocols": true,
+    "showSearch": true,
+    "deselect": true,
+    "selectionType": "none",
+    "columns": [],
+    "mobileBreakpoint": "sm",
+    "mobileBreakpointType": "defaults",
+    "action": "replace",
+    "className": "",
+    "id": "receipts_w",
+    "z": "tab_over",
+    "x": 910,
+    "y": 580,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "feed_i",
+    "type": "inject",
+    "z": "tab_over",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 650,
+    "wires": [
+      [
+        "feed_q"
+      ]
+    ]
+  },
+  {
+    "id": "feed_q",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Query: feed",
+    "func": "// Recent notices (alerts, work requests, recoveries)\nmsg.query = `\nSELECT n.created_at, n.severity, n.title, n.message, (n.delivered_at IS NOT NULL) AS sent\n  FROM mf.notifications n ORDER BY n.created_at DESC, n.id DESC LIMIT 10\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 650,
+    "wires": [
+      [
+        "feed_p"
+      ]
+    ]
+  },
+  {
+    "id": "feed_p",
+    "type": "postgresql",
+    "z": "tab_over",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 650,
+    "wires": [
+      [
+        "feed_s"
+      ]
+    ]
+  },
+  {
+    "id": "feed_s",
+    "type": "function",
+    "z": "tab_over",
+    "name": "Shape for the screen",
+    "func": "const t = (v) => (v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');\nmsg.payload = (msg.payload || []).map((n) => ({\n    Time: t(n.created_at), Level: n.severity, Notice: n.title, Detail: n.message, 'Sent outside': n.sent ? 'yes' : '',\n}));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 650,
+    "wires": [
+      [
+        "feed_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-table",
+    "group": "g_feed",
+    "name": "Notices",
+    "label": "",
+    "order": 1,
+    "width": 12,
+    "height": 0,
+    "maxrows": 0,
+    "passthru": false,
+    "autocols": true,
+    "showSearch": true,
+    "deselect": true,
+    "selectionType": "none",
+    "columns": [],
+    "mobileBreakpoint": "sm",
+    "mobileBreakpointType": "defaults",
+    "action": "replace",
+    "className": "",
+    "id": "feed_w",
+    "z": "tab_over",
+    "x": 910,
+    "y": 650,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "n_toast",
+    "type": "ui-notification",
+    "z": "tab_over",
+    "ui": "ui_base",
+    "position": "top right",
+    "colorDefault": true,
+    "color": "#000000",
+    "displayTime": "8",
+    "showCountdown": true,
+    "outputs": 0,
+    "allowDismiss": true,
+    "dismissText": "Close",
+    "allowConfirm": false,
+    "raw": false,
+    "className": "",
+    "name": "Pop-up alerts",
+    "x": 960,
+    "y": 740,
+    "wires": []
+  },
+  {
+    "id": "toast_i",
+    "type": "inject",
+    "z": "tab_over",
+    "name": "Every 2 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "2",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 740,
+    "wires": [
+      [
+        "toast_q"
+      ]
+    ]
+  },
+  {
+    "id": "toast_q",
+    "type": "function",
+    "z": "tab_over",
+    "name": "New notices since last look",
+    "func": "// Pops up a notification on every open dashboard whenever a new alert is written.\n// First run only remembers where we are, so a restart never replays old alerts.\nif (flow.get('last') === undefined) {\n    msg.query = 'SELECT COALESCE(max(id), 0)::int AS last FROM mf.notifications';\n    msg.params = [];\n    msg.init = true;\n    return msg;\n}\nmsg.query = `SELECT n.id, n.kind, n.severity, n.title, n.message, a.asset_code\n               FROM mf.notifications n LEFT JOIN mf.assets a ON a.id = n.asset_id\n              WHERE n.id > $1 AND NOT n.seeded ORDER BY n.id`;\nmsg.params = [flow.get('last')];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 740,
+    "wires": [
+      [
+        "toast_p"
+      ]
+    ]
+  },
+  {
+    "id": "toast_p",
+    "type": "postgresql",
+    "z": "tab_over",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 560,
+    "y": 740,
+    "wires": [
+      [
+        "toast_o"
+      ]
+    ]
+  },
+  {
+    "id": "toast_o",
+    "type": "function",
+    "z": "tab_over",
+    "name": "One pop-up per notice",
+    "func": "const rows = msg.payload || [];\nif (msg.init) { flow.set('last', rows[0] ? rows[0].last : 0); return null; }\nif (!rows.length) return null;\nflow.set('last', rows[rows.length - 1].id);\nconst COLOUR = { critical: '#dc2626', warning: '#d97706', success: '#16a34a', info: '#2563eb' };\nreturn [rows.map((n) => ({\n    payload: `${n.title}${n.message ? ': ' + n.message : ''}`,\n    color: COLOUR[n.severity] || '#2563eb',\n}))];",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 740,
+    "y": 740,
+    "wires": [
+      [
+        "n_toast"
+      ]
+    ]
+  },
+  {
+    "id": "tab_admin",
+    "type": "tab",
+    "label": "Settings & admin",
+    "disabled": false,
+    "info": "Customer administration: change how the plant behaves without touching code. Each form writes to the database through a restricted user, then the tables refresh."
+  },
+  {
+    "id": "c_admin",
+    "type": "comment",
+    "z": "tab_admin",
+    "name": "Settings, fault catalogue and machines",
+    "info": "Form -> Check the input -> Run SQL -> Tell the user -> refresh the table.\nYou can add your own forms the same way.",
+    "x": 200,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "a_set",
+    "type": "ui-group",
+    "name": "Settings",
+    "page": "pg_admin",
+    "width": 12,
+    "height": 1,
+    "order": 1,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "a_setf",
+    "type": "ui-group",
+    "name": "Change a setting",
+    "page": "pg_admin",
+    "width": 6,
+    "height": 1,
+    "order": 2,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "a_reas",
+    "type": "ui-group",
+    "name": "Fault catalogue",
+    "page": "pg_admin",
+    "width": 12,
+    "height": 1,
+    "order": 3,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "a_reasf",
+    "type": "ui-group",
+    "name": "Add or change a fault code",
+    "page": "pg_admin",
+    "width": 6,
+    "height": 1,
+    "order": 4,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "a_mach",
+    "type": "ui-group",
+    "name": "Machines",
+    "page": "pg_admin",
+    "width": 12,
+    "height": 1,
+    "order": 5,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "a_machf",
+    "type": "ui-group",
+    "name": "Add or change a machine",
+    "page": "pg_admin",
+    "width": 6,
+    "height": 1,
+    "order": 6,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "settings_i",
+    "type": "inject",
+    "z": "tab_admin",
+    "name": "Every 10 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "10",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 90,
+    "wires": [
+      [
+        "settings_q"
+      ]
+    ]
+  },
+  {
+    "id": "settings_q",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Query: settings",
+    "func": "// Every setting the flows read at run time\nmsg.query = `\nSELECT key, value, description, updated_at FROM mf.settings ORDER BY key\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 90,
+    "wires": [
+      [
+        "settings_p"
+      ]
+    ]
+  },
+  {
+    "id": "settings_p",
+    "type": "postgresql",
+    "z": "tab_admin",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 90,
+    "wires": [
+      [
+        "settings_s"
+      ]
+    ]
+  },
+  {
+    "id": "settings_s",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Shape for the screen",
+    "func": "const t = (v) => (v ? new Date(v).toLocaleString('en-GB') : '');\nmsg.payload = (msg.payload || []).map((s) => ({\n    Setting: s.key, Value: JSON.stringify(s.value), What: s.description, Changed: t(s.updated_at),\n}));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 90,
+    "wires": [
+      [
+        "settings_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-table",
+    "group": "a_set",
+    "name": "Settings table",
+    "label": "",
+    "order": 1,
+    "width": 12,
+    "height": 0,
+    "maxrows": 0,
+    "passthru": false,
+    "autocols": true,
+    "showSearch": true,
+    "deselect": true,
+    "selectionType": "none",
+    "columns": [],
+    "mobileBreakpoint": "sm",
+    "mobileBreakpointType": "defaults",
+    "action": "replace",
+    "className": "",
+    "id": "settings_w",
+    "z": "tab_admin",
+    "x": 910,
+    "y": 90,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "reasons_i",
+    "type": "inject",
+    "z": "tab_admin",
+    "name": "Every 10 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "10",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 160,
+    "wires": [
+      [
+        "reasons_q"
+      ]
+    ]
+  },
+  {
+    "id": "reasons_q",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Query: reasons",
+    "func": "// Fault catalogue\nmsg.query = `\nSELECT code, description, asset_type, severity, assigned_to, active FROM mf.reason_codes ORDER BY asset_type NULLS FIRST, code\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 160,
+    "wires": [
+      [
+        "reasons_p"
+      ]
+    ]
+  },
+  {
+    "id": "reasons_p",
+    "type": "postgresql",
+    "z": "tab_admin",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 160,
+    "wires": [
+      [
+        "reasons_s"
+      ]
+    ]
+  },
+  {
+    "id": "reasons_s",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Shape for the screen",
+    "func": "msg.payload = (msg.payload || []).map((r) => ({\n    Code: r.code, Meaning: r.description, 'Machine type': r.asset_type || 'any', Severity: r.severity,\n    'Assigned to': r.assigned_to || '(default)', Active: r.active ? 'yes' : 'no',\n}));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 160,
+    "wires": [
+      [
+        "reasons_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-table",
+    "group": "a_reas",
+    "name": "Fault table",
+    "label": "",
+    "order": 1,
+    "width": 12,
+    "height": 0,
+    "maxrows": 0,
+    "passthru": false,
+    "autocols": true,
+    "showSearch": true,
+    "deselect": true,
+    "selectionType": "none",
+    "columns": [],
+    "mobileBreakpoint": "sm",
+    "mobileBreakpointType": "defaults",
+    "action": "replace",
+    "className": "",
+    "id": "reasons_w",
+    "z": "tab_admin",
+    "x": 910,
+    "y": 160,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "machinelist_i",
+    "type": "inject",
+    "z": "tab_admin",
+    "name": "Every 10 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "10",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 230,
+    "wires": [
+      [
+        "machinelist_q"
+      ]
+    ]
+  },
+  {
+    "id": "machinelist_q",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Query: machinelist",
+    "func": "// Machines in the plant\nmsg.query = `\nSELECT a.asset_code, a.name, ar.name AS area, a.asset_type, a.default_part_number, a.ideal_cycle_seconds\n  FROM mf.assets a LEFT JOIN mf.areas ar ON ar.id = a.area_id ORDER BY a.asset_code\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 230,
+    "wires": [
+      [
+        "machinelist_p"
+      ]
+    ]
+  },
+  {
+    "id": "machinelist_p",
+    "type": "postgresql",
+    "z": "tab_admin",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 230,
+    "wires": [
+      [
+        "machinelist_s"
+      ]
+    ]
+  },
+  {
+    "id": "machinelist_s",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Shape for the screen",
+    "func": "msg.payload = (msg.payload || []).map((m) => ({\n    Code: m.asset_code, Name: m.name, Area: m.area, Type: m.asset_type, Part: m.default_part_number, 'Cycle (s)': m.ideal_cycle_seconds,\n}));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 230,
+    "wires": [
+      [
+        "machinelist_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-table",
+    "group": "a_mach",
+    "name": "Machine table",
+    "label": "",
+    "order": 1,
+    "width": 12,
+    "height": 0,
+    "maxrows": 0,
+    "passthru": false,
+    "autocols": true,
+    "showSearch": true,
+    "deselect": true,
+    "selectionType": "none",
+    "columns": [],
+    "mobileBreakpoint": "sm",
+    "mobileBreakpointType": "defaults",
+    "action": "replace",
+    "className": "",
+    "id": "machinelist_w",
+    "z": "tab_admin",
+    "x": 910,
+    "y": 230,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "fs_f",
+    "type": "ui-form",
+    "z": "tab_admin",
+    "group": "a_setf",
+    "name": "Change a setting",
+    "label": "Change a setting",
+    "order": 1,
+    "width": 6,
+    "height": 0,
+    "options": [
+      {
+        "label": "Setting name (exactly as in the table)",
+        "key": "key",
+        "type": "text",
+        "required": true
+      },
+      {
+        "label": "New value (a number, text in quotes, or a list like [\"faulted\"])",
+        "key": "value",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "formValue": {
+      "key": "",
+      "value": ""
+    },
+    "payload": "",
+    "submit": "Save",
+    "cancel": "Clear",
+    "resetOnSubmit": true,
+    "topic": "topic",
+    "topicType": "msg",
+    "splitLayout": false,
+    "className": "",
+    "passthru": false,
+    "dropdownOptions": [],
+    "x": 170,
+    "y": 320,
+    "wires": [
+      [
+        "fs_c"
+      ]
+    ]
+  },
+  {
+    "id": "fs_c",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Check the input and build the SQL",
+    "func": "const p = msg.payload || {};\nconst key = String(p.key || '').trim();\nlet raw = String(p.value === undefined ? '' : p.value).trim();\nif (!key || raw === '') return [null, { payload: 'Both a setting name and a value are needed.', color: '#dc2626' }];\nlet json;\ntry { json = JSON.parse(raw); } catch (e) { json = raw; }   // plain words are stored as text\nmsg.query = `UPDATE mf.settings SET value = $2::jsonb, updated_at = now(), updated_by = 'studio' WHERE key = $1 RETURNING key`;\nmsg.params = [key, JSON.stringify(json)];\nmsg.done = `Setting \"${key}\" is now ${JSON.stringify(json)}. The plant picks it up within 10 seconds.`;\nmsg.notFound = `There is no setting called \"${key}\". Copy the name from the table above.`;\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 320,
+    "wires": [
+      [
+        "fs_p"
+      ],
+      [
+        "fs_n"
+      ]
+    ]
+  },
+  {
+    "id": "fs_p",
+    "type": "postgresql",
+    "z": "tab_admin",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 650,
+    "y": 320,
+    "wires": [
+      [
+        "fs_r"
+      ]
+    ]
+  },
+  {
+    "id": "fs_r",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Tell the user",
+    "func": "const ok = (msg.payload && msg.payload.length) ? true : false;\nif (!ok) return [{ payload: msg.notFound || 'Nothing was changed.', color: '#d97706' }, null];\nreturn [{ payload: msg.done, color: '#16a34a' }, { payload: 'refresh' }];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 820,
+    "y": 320,
+    "wires": [
+      [
+        "fs_n"
+      ],
+      [
+        "settings_q"
+      ]
+    ]
+  },
+  {
+    "id": "fs_n",
+    "type": "ui-notification",
+    "z": "tab_admin",
+    "ui": "ui_base",
+    "position": "top right",
+    "colorDefault": true,
+    "color": "#000000",
+    "displayTime": "5",
+    "showCountdown": false,
+    "outputs": 0,
+    "allowDismiss": true,
+    "dismissText": "Close",
+    "allowConfirm": false,
+    "raw": false,
+    "className": "",
+    "name": "Toast",
+    "x": 1040,
+    "y": 320,
+    "wires": []
+  },
+  {
+    "id": "fr_f",
+    "type": "ui-form",
+    "z": "tab_admin",
+    "group": "a_reasf",
+    "name": "Add or change a fault code",
+    "label": "Add or change a fault code",
+    "order": 1,
+    "width": 6,
+    "height": 0,
+    "options": [
+      {
+        "label": "Code (capitals and underscores, e.g. JAM)",
+        "key": "code",
+        "type": "text",
+        "required": true
+      },
+      {
+        "label": "What it means",
+        "key": "description",
+        "type": "text",
+        "required": true
+      },
+      {
+        "label": "Machine type it applies to (press, cnc, assembly; blank = any)",
+        "key": "asset_type",
+        "type": "text",
+        "required": false
+      },
+      {
+        "label": "Severity (critical, warning or info)",
+        "key": "severity",
+        "type": "text",
+        "required": true
+      },
+      {
+        "label": "Who gets the work request (blank = default)",
+        "key": "assigned_to",
+        "type": "text",
+        "required": false
+      },
+      {
+        "label": "Active",
+        "key": "active",
+        "type": "switch",
+        "required": false
+      }
+    ],
+    "formValue": {
+      "code": "",
+      "description": "",
+      "asset_type": "",
+      "severity": "",
+      "assigned_to": "",
+      "active": ""
+    },
+    "payload": "",
+    "submit": "Save",
+    "cancel": "Clear",
+    "resetOnSubmit": true,
+    "topic": "topic",
+    "topicType": "msg",
+    "splitLayout": false,
+    "className": "",
+    "passthru": false,
+    "dropdownOptions": [],
+    "x": 170,
+    "y": 410,
+    "wires": [
+      [
+        "fr_c"
+      ]
+    ]
+  },
+  {
+    "id": "fr_c",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Check the input and build the SQL",
+    "func": "const p = msg.payload || {};\nconst code = String(p.code || '').trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');\nconst sev = String(p.severity || '').trim().toLowerCase();\nif (!code || !String(p.description || '').trim()) return [null, { payload: 'A code and a description are needed.', color: '#dc2626' }];\nif (!['critical', 'warning', 'info'].includes(sev)) return [null, { payload: 'Severity must be critical, warning or info.', color: '#dc2626' }];\nmsg.query = `INSERT INTO mf.reason_codes (code, description, asset_type, severity, assigned_to, active, updated_at)\n             VALUES ($1, $2, NULLIF($3, ''), $4, NULLIF($5, ''), $6, now())\n             ON CONFLICT (code) DO UPDATE SET description = EXCLUDED.description, asset_type = EXCLUDED.asset_type,\n                  severity = EXCLUDED.severity, assigned_to = EXCLUDED.assigned_to, active = EXCLUDED.active, updated_at = now()\n             RETURNING code`;\nmsg.params = [code, String(p.description).trim(), String(p.asset_type || '').trim().toLowerCase(), sev, String(p.assigned_to || '').trim(), p.active !== false];\nmsg.done = `Fault code ${code} saved.`;\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 410,
+    "wires": [
+      [
+        "fr_p"
+      ],
+      [
+        "fr_n"
+      ]
+    ]
+  },
+  {
+    "id": "fr_p",
+    "type": "postgresql",
+    "z": "tab_admin",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 650,
+    "y": 410,
+    "wires": [
+      [
+        "fr_r"
+      ]
+    ]
+  },
+  {
+    "id": "fr_r",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Tell the user",
+    "func": "const ok = (msg.payload && msg.payload.length) ? true : false;\nif (!ok) return [{ payload: msg.notFound || 'Nothing was changed.', color: '#d97706' }, null];\nreturn [{ payload: msg.done, color: '#16a34a' }, { payload: 'refresh' }];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 820,
+    "y": 410,
+    "wires": [
+      [
+        "fr_n"
+      ],
+      [
+        "reasons_q"
+      ]
+    ]
+  },
+  {
+    "id": "fr_n",
+    "type": "ui-notification",
+    "z": "tab_admin",
+    "ui": "ui_base",
+    "position": "top right",
+    "colorDefault": true,
+    "color": "#000000",
+    "displayTime": "5",
+    "showCountdown": false,
+    "outputs": 0,
+    "allowDismiss": true,
+    "dismissText": "Close",
+    "allowConfirm": false,
+    "raw": false,
+    "className": "",
+    "name": "Toast",
+    "x": 1040,
+    "y": 410,
+    "wires": []
+  },
+  {
+    "id": "fm_f",
+    "type": "ui-form",
+    "z": "tab_admin",
+    "group": "a_machf",
+    "name": "Add or change a machine",
+    "label": "Add or change a machine",
+    "order": 1,
+    "width": 6,
+    "height": 0,
+    "options": [
+      {
+        "label": "Machine code (used in MQTT topics, e.g. PRESS-003)",
+        "key": "code",
+        "type": "text",
+        "required": true
+      },
+      {
+        "label": "Display name",
+        "key": "name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "label": "Area (e.g. Stamping)",
+        "key": "area",
+        "type": "text",
+        "required": true
+      },
+      {
+        "label": "Type (press, cnc, assembly)",
+        "key": "type",
+        "type": "text",
+        "required": true
+      },
+      {
+        "label": "Default part number",
+        "key": "part",
+        "type": "text",
+        "required": false
+      },
+      {
+        "label": "Ideal seconds per part",
+        "key": "cycle",
+        "type": "number",
+        "required": false
+      }
+    ],
+    "formValue": {
+      "code": "",
+      "name": "",
+      "area": "",
+      "type": "",
+      "part": "",
+      "cycle": ""
+    },
+    "payload": "",
+    "submit": "Save",
+    "cancel": "Clear",
+    "resetOnSubmit": true,
+    "topic": "topic",
+    "topicType": "msg",
+    "splitLayout": false,
+    "className": "",
+    "passthru": false,
+    "dropdownOptions": [],
+    "x": 170,
+    "y": 500,
+    "wires": [
+      [
+        "fm_c"
+      ]
+    ]
+  },
+  {
+    "id": "fm_c",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Check the input and build the SQL",
+    "func": "const p = msg.payload || {};\nconst code = String(p.code || '').trim().toUpperCase();\nif (!/^[A-Z0-9][A-Z0-9_-]{1,40}$/.test(code)) return [null, { payload: 'The machine code can use capitals, numbers, - and _ only.', color: '#dc2626' }];\nif (!String(p.name || '').trim() || !String(p.area || '').trim() || !String(p.type || '').trim())\n    return [null, { payload: 'Name, area and type are needed.', color: '#dc2626' }];\nconst cycle = (p.cycle === '' || p.cycle === null || p.cycle === undefined) ? null : Number(p.cycle);\nif (cycle !== null && !(cycle > 0 && cycle < 100000)) return [null, { payload: 'Seconds per part must be a positive number.', color: '#dc2626' }];\nmsg.query = `INSERT INTO mf.areas (site_id, name) SELECT id, $1 FROM mf.sites ORDER BY created_at LIMIT 1\n             ON CONFLICT (site_id, name) DO NOTHING`;\nmsg.params = [String(p.area).trim()];\nmsg.query2 = `INSERT INTO mf.assets (site_id, area_id, asset_code, name, asset_type, default_part_number, ideal_cycle_seconds)\n  SELECT s.id, ar.id, $1, $2, $4, NULLIF($5, ''), $6\n    FROM (SELECT id FROM mf.sites ORDER BY created_at LIMIT 1) s\n    JOIN mf.areas ar ON ar.site_id = s.id AND ar.name = $3\n  ON CONFLICT (site_id, asset_code) DO UPDATE SET area_id = EXCLUDED.area_id, name = EXCLUDED.name, asset_type = EXCLUDED.asset_type,\n       default_part_number = EXCLUDED.default_part_number, ideal_cycle_seconds = EXCLUDED.ideal_cycle_seconds\n  RETURNING asset_code`;\nmsg.params2 = [code, String(p.name).trim(), String(p.area).trim(), String(p.type).trim().toLowerCase(), String(p.part || '').trim(), cycle];\nmsg.done = `Machine ${code} saved. It shows as Offline until it sends data to mf/v1/site/<site>/asset/${code}/status.`;\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 500,
+    "wires": [
+      [
+        "fm_pre"
+      ],
+      [
+        "fm_n"
+      ]
+    ]
+  },
+  {
+    "id": "fm_pre",
+    "type": "postgresql",
+    "z": "tab_admin",
+    "name": "Step 1: make sure the area exists",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 650,
+    "y": 500,
+    "wires": [
+      [
+        "fm_mid"
+      ]
+    ]
+  },
+  {
+    "id": "fm_mid",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Step 2: now the machine",
+    "func": "msg.query = msg.query2;\nmsg.params = msg.params2;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 860,
+    "y": 500,
+    "wires": [
+      [
+        "fm_p"
+      ]
+    ]
+  },
+  {
+    "id": "fm_p",
+    "type": "postgresql",
+    "z": "tab_admin",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 1050,
+    "y": 500,
+    "wires": [
+      [
+        "fm_r"
+      ]
+    ]
+  },
+  {
+    "id": "fm_r",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Tell the user",
+    "func": "const ok = (msg.payload && msg.payload.length) ? true : false;\nif (!ok) return [{ payload: msg.notFound || 'Nothing was changed.', color: '#d97706' }, null];\nreturn [{ payload: msg.done, color: '#16a34a' }, { payload: 'refresh' }];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1220,
+    "y": 500,
+    "wires": [
+      [
+        "fm_n"
+      ],
+      [
+        "machinelist_q"
+      ]
+    ]
+  },
+  {
+    "id": "fm_n",
+    "type": "ui-notification",
+    "z": "tab_admin",
+    "ui": "ui_base",
+    "position": "top right",
+    "colorDefault": true,
+    "color": "#000000",
+    "displayTime": "5",
+    "showCountdown": false,
+    "outputs": 0,
+    "allowDismiss": true,
+    "dismissText": "Close",
+    "allowConfirm": false,
+    "raw": false,
+    "className": "",
+    "name": "Toast",
+    "x": 1440,
+    "y": 500,
+    "wires": []
+  },
+  {
+    "id": "adm_catch",
+    "type": "catch",
+    "z": "tab_admin",
+    "name": "any error on this page",
+    "scope": null,
+    "uncaught": false,
+    "x": 170,
+    "y": 590,
+    "wires": [
+      [
+        "adm_err"
+      ]
+    ]
+  },
+  {
+    "id": "adm_err",
+    "type": "function",
+    "z": "tab_admin",
+    "name": "Friendly error",
+    "func": "return { payload: 'Could not save: ' + String((msg.error && msg.error.message) || 'unknown error').replace(/^error: /i, ''), color: '#dc2626' };",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 590,
+    "wires": [
+      [
+        "adm_err_n"
+      ]
+    ]
+  },
+  {
+    "id": "adm_err_n",
+    "type": "ui-notification",
+    "z": "tab_admin",
+    "ui": "ui_base",
+    "position": "top right",
+    "colorDefault": true,
+    "color": "#000000",
+    "displayTime": "8",
+    "showCountdown": false,
+    "outputs": 0,
+    "allowDismiss": true,
+    "dismissText": "Close",
+    "allowConfirm": false,
+    "raw": false,
+    "className": "",
+    "name": "Error toast",
+    "x": 620,
+    "y": 590,
+    "wires": []
+  },
+  {
+    "id": "tab_guide",
+    "type": "tab",
+    "label": "READ ME: your flows",
+    "disabled": false,
+    "info": "Start here."
+  },
+  {
+    "id": "g1",
+    "type": "comment",
+    "z": "tab_guide",
+    "name": "What this editor is",
+    "info": "This is YOUR Node-RED. It controls what the dashboard shows and the Settings page. The plant's engine (collecting machine data, counting parts, raising alerts, the REST API) runs in a separate, locked instance maintained by us, so a mistake here can never stop production data being collected.",
+    "x": 200,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "g2",
+    "type": "comment",
+    "z": "tab_guide",
+    "name": "Change what a panel shows",
+    "info": "Open the 'Plant overview' tab. Double-click the 'Query' function in the row for that panel and edit the SQL. Click Deploy.",
+    "x": 200,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "g3",
+    "type": "comment",
+    "z": "tab_guide",
+    "name": "Change how a panel looks",
+    "info": "Double-click the template (or table) node at the end of the row. Colours and layout live there; the brand theme is under the dashboard sidebar > Theme.",
+    "x": 200,
+    "y": 180,
+    "wires": []
+  },
+  {
+    "id": "g4",
+    "type": "comment",
+    "z": "tab_guide",
+    "name": "Add a new panel",
+    "info": "Copy a row (select, Ctrl+C, Ctrl+V), change the SQL, change the widget's group. Tables are the easiest: any SQL that returns rows becomes a table.",
+    "x": 200,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "g5",
+    "type": "comment",
+    "z": "tab_guide",
+    "name": "Safe by design",
+    "info": "This instance connects to the database as a restricted user: it can read everything, but only write settings, fault codes and the machine list. Production counts, orders and alerts are written by the locked engine only.",
+    "x": 200,
+    "y": 300,
+    "wires": []
+  }
+]

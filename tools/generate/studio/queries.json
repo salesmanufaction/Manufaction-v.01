@@ -1,0 +1,50 @@
+{
+ "kpis": {
+  "query": "// Headline numbers for the four tiles at the top of the Plant overview page\nmsg.query = `\nWITH plant AS (\n  SELECT (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1),\nst AS (SELECT a.id, CASE WHEN a.last_seen_at IS NULL OR a.last_seen_at < now() - make_interval(secs => COALESCE((SELECT (value #>> '{}')::int FROM mf.settings WHERE key = 'offline_after_seconds'), 30)) THEN 'offline' ELSE a.status END AS eff FROM mf.assets a)\nSELECT (SELECT count(*) FROM st)::int AS total,\n       (SELECT count(*) FROM st WHERE eff = 'running')::int AS running,\n       (SELECT count(*) FROM st WHERE eff IN ('faulted','stopped'))::int AS down_now,\n       (SELECT count(*) FROM mf.quality_events q, plant p WHERE q.event_time >= p.day_start AND q.result = 'good')::int AS good,\n       (SELECT count(*) FROM mf.quality_events q, plant p WHERE q.event_time >= p.day_start AND q.result <> 'good')::int AS scrap,\n       (SELECT COALESCE(ROUND((SUM(EXTRACT(EPOCH FROM (COALESCE(d.ended_at, now()) - GREATEST(d.started_at, p.day_start)))) / 60.0)::numeric, 1), 0)\n          FROM mf.downtime_events d, plant p WHERE COALESCE(d.ended_at, now()) >= p.day_start)::float AS downtime_min,\n       (SELECT count(*) FROM mf.maintenance_requests WHERE status = 'open')::int AS open_wr,\n       COALESCE((SELECT (value #>> '{}')::float FROM mf.settings WHERE key = 'yield_target_pct'), 95) AS yield_target\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "msg.payload = (msg.payload && msg.payload[0]) || {};\nreturn msg;"
+ },
+ "alerts": {
+  "query": "// Machines that are down right now (the red banner)\nmsg.query = `\nSELECT a.asset_code, a.name, d.status,\n       COALESCE(d.reason_description, d.reason_code, 'No reason reported') AS reason,\n       d.started_at, r.request_number AS work_request, r.assigned_to\n  FROM mf.downtime_events d\n  JOIN mf.assets a ON a.id = d.asset_id\n  LEFT JOIN mf.maintenance_requests r ON r.downtime_event_id = d.id\n WHERE d.ended_at IS NULL\n   AND d.status IN (SELECT jsonb_array_elements_text(value) FROM mf.settings WHERE key = 'alert_statuses')\n ORDER BY d.started_at\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "msg.payload = msg.payload || [];\nreturn msg;"
+ },
+ "machines": {
+  "query": "// One row per machine: status, latest readings, active order, open downtime (the machine cards)\nmsg.query = `\nSELECT a.asset_code, a.name, a.asset_type, ar.name AS area, CASE WHEN a.last_seen_at IS NULL OR a.last_seen_at < now() - make_interval(secs => COALESCE((SELECT (value #>> '{}')::int FROM mf.settings WHERE key = 'offline_after_seconds'), 30)) THEN 'offline' ELSE a.status END AS status,\n       (SELECT COALESCE(json_agg(json_build_object('name', sg.signal_name,\n                 'value', COALESCE(to_json(sg.last_value_numeric), to_json(sg.last_value_text)),\n                 'unit', sg.unit) ORDER BY sg.signal_name), '[]'::json)\n          FROM mf.asset_signals sg WHERE sg.asset_id = a.id AND sg.signal_name <> 'cycle_count') AS signals,\n       (SELECT json_build_object('order_number', o.order_number, 'part_number', o.part_number,\n                 'completed', o.completed_quantity, 'target', o.target_quantity, 'scrap', o.scrap_quantity)\n          FROM mf.production_orders o WHERE o.asset_id = a.id AND o.status IN ('released','running')\n         ORDER BY o.released_at LIMIT 1) AS \"order\",\n       (SELECT json_build_object('reason', COALESCE(d.reason_description, d.reason_code, 'No reason reported'),\n                 'since', d.started_at,\n                 'work_request', (SELECT r.request_number FROM mf.maintenance_requests r WHERE r.downtime_event_id = d.id LIMIT 1))\n          FROM mf.downtime_events d WHERE d.asset_id = a.id AND d.ended_at IS NULL) AS downtime\n  FROM mf.assets a\n  LEFT JOIN mf.areas ar ON ar.id = a.area_id\n ORDER BY a.asset_code\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "// the template reads the column called \"order\" as m.order\nmsg.payload = msg.payload || [];\nreturn msg;"
+ },
+ "orders": {
+  "query": "// Latest production orders\nmsg.query = `\nSELECT o.order_number, a.asset_code, o.part_number, o.completed_quantity, o.scrap_quantity,\n       o.target_quantity, o.status, o.released_at\n  FROM mf.production_orders o LEFT JOIN mf.assets a ON a.id = o.asset_id\n ORDER BY (o.status IN ('released','running')) DESC, o.released_at DESC\n LIMIT 10\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "const rows = msg.payload || [];\nmsg.payload = rows.map((o) => ({\n    Order: o.order_number,\n    Machine: o.asset_code,\n    Part: o.part_number,\n    Progress: `${o.completed_quantity} / ${o.target_quantity}`,\n    Scrap: o.scrap_quantity,\n    Status: o.status,\n}));\nreturn msg;"
+ },
+ "downtime": {
+  "query": "// Minutes of downtime today for each machine\nmsg.query = `\nWITH plant AS (\n  SELECT (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1)\nSELECT a.asset_code,\n       COALESCE(ROUND((SUM(EXTRACT(EPOCH FROM (COALESCE(d.ended_at, now()) - GREATEST(d.started_at, p.day_start)))) / 60.0)::numeric, 1), 0)::float AS minutes,\n       COUNT(d.id)::int AS events,\n       MODE() WITHIN GROUP (ORDER BY d.reason_code) AS top_reason\n  FROM mf.assets a\n  CROSS JOIN plant p\n  LEFT JOIN mf.downtime_events d ON d.asset_id = a.id AND COALESCE(d.ended_at, now()) >= p.day_start\n GROUP BY a.asset_code\n ORDER BY a.asset_code\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "msg.payload = msg.payload || [];\nreturn msg;"
+ },
+ "workrequests": {
+  "query": "// Latest maintenance work requests\nmsg.query = `\nSELECT r.request_number, a.asset_code, r.reason_code, r.assigned_to, r.status, r.opened_at, r.closed_at\n  FROM mf.maintenance_requests r JOIN mf.assets a ON a.id = r.asset_id\n ORDER BY r.opened_at DESC, r.id DESC LIMIT 8\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "const t = (v) => (v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');\nmsg.payload = (msg.payload || []).map((r) => ({\n    Request: r.request_number,\n    Machine: r.asset_code,\n    Reason: r.reason_code,\n    'Assigned to': r.assigned_to,\n    Status: r.status,\n    Opened: t(r.opened_at),\n    Closed: t(r.closed_at),\n}));\nreturn msg;"
+ },
+ "receipts": {
+  "query": "// Production receipts sent back to the ERP\nmsg.query = `\nSELECT order_number, part_number, good_quantity, scrap_quantity, received_at\n  FROM demo_erp.production_receipts ORDER BY received_at DESC LIMIT 6\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "const t = (v) => (v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');\nmsg.payload = (msg.payload || []).map((r) => ({\n    Order: r.order_number, Part: r.part_number, Good: r.good_quantity, Scrap: r.scrap_quantity, Received: t(r.received_at),\n}));\nreturn msg;"
+ },
+ "feed": {
+  "query": "// Recent notices (alerts, work requests, recoveries)\nmsg.query = `\nSELECT n.created_at, n.severity, n.title, n.message, (n.delivered_at IS NOT NULL) AS sent\n  FROM mf.notifications n ORDER BY n.created_at DESC, n.id DESC LIMIT 10\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "const t = (v) => (v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');\nmsg.payload = (msg.payload || []).map((n) => ({\n    Time: t(n.created_at), Level: n.severity, Notice: n.title, Detail: n.message, 'Sent outside': n.sent ? 'yes' : '',\n}));\nreturn msg;"
+ },
+ "settings": {
+  "query": "// Every setting the flows read at run time\nmsg.query = `\nSELECT key, value, description, updated_at FROM mf.settings ORDER BY key\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "const t = (v) => (v ? new Date(v).toLocaleString('en-GB') : '');\nmsg.payload = (msg.payload || []).map((s) => ({\n    Setting: s.key, Value: JSON.stringify(s.value), What: s.description, Changed: t(s.updated_at),\n}));\nreturn msg;"
+ },
+ "reasons": {
+  "query": "// Fault catalogue\nmsg.query = `\nSELECT code, description, asset_type, severity, assigned_to, active FROM mf.reason_codes ORDER BY asset_type NULLS FIRST, code\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "msg.payload = (msg.payload || []).map((r) => ({\n    Code: r.code, Meaning: r.description, 'Machine type': r.asset_type || 'any', Severity: r.severity,\n    'Assigned to': r.assigned_to || '(default)', Active: r.active ? 'yes' : 'no',\n}));\nreturn msg;"
+ },
+ "machinelist": {
+  "query": "// Machines in the plant\nmsg.query = `\nSELECT a.asset_code, a.name, ar.name AS area, a.asset_type, a.default_part_number, a.ideal_cycle_seconds\n  FROM mf.assets a LEFT JOIN mf.areas ar ON ar.id = a.area_id ORDER BY a.asset_code\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "msg.payload = (msg.payload || []).map((m) => ({\n    Code: m.asset_code, Name: m.name, Area: m.area, Type: m.asset_type, Part: m.default_part_number, 'Cycle (s)': m.ideal_cycle_seconds,\n}));\nreturn msg;"
+ },
+ "plant": {
+  "query": "// Plant name shown at the top of the dashboard (Settings page: plant_name)\nmsg.query = `SELECT value #>> '{}' AS name FROM mf.settings WHERE key = 'plant_name'`;\nmsg.params = [];\nreturn msg;",
+  "shape": "msg.payload = (msg.payload && msg.payload[0] && msg.payload[0].name) || 'Plant overview';\nreturn msg;"
+ }
+}
