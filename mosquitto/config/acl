@@ -1,0 +1,13 @@
+# Manufaction topic permissions. Users are created from .env by entrypoint.sh.
+# Topic contract: mf/v1/site/{site}/asset/{asset}/{telemetry|status|event|command}
+
+# Cloud integration engine: full access to the v1 namespace
+user nodered
+topic readwrite mf/v1/#
+
+# Edge devices / simulator: publish machine data, receive commands
+user edge
+topic write mf/v1/site/+/asset/+/telemetry
+topic write mf/v1/site/+/asset/+/status
+topic write mf/v1/site/+/asset/+/event
+topic read  mf/v1/site/+/asset/+/command

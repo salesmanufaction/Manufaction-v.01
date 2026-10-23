@@ -1,0 +1,1347 @@
+[
+  {
+    "id": "tab_ingest",
+    "type": "tab",
+    "label": "01 MQTT Ingestion",
+    "disabled": false,
+    "info": "Every machine/edge message lands here and is written to the canonical data model."
+  },
+  {
+    "id": "tab_api",
+    "type": "tab",
+    "label": "02 API",
+    "disabled": false,
+    "info": "Manufaction REST API v1. Every route except /health requires `Authorization: Bearer $MF_API_TOKEN`. Caddy injects the token for browser users who passed basic auth."
+  },
+  {
+    "id": "tab_dispatch",
+    "type": "tab",
+    "label": "03 Production Engine",
+    "disabled": false,
+    "info": "Sends released orders to machines and keeps housekeeping tidy."
+  },
+  {
+    "id": "tab_erp",
+    "type": "tab",
+    "label": "04 Demo ERP",
+    "disabled": false,
+    "info": "A stand-in ERP. Releases orders to Manufaction over the REST API and receives production receipts back."
+  },
+  {
+    "id": "pg_cfg",
+    "type": "postgreSQLConfig",
+    "name": "Manufaction DB",
+    "host": "PGHOST",
+    "hostFieldType": "env",
+    "port": "PGPORT",
+    "portFieldType": "env",
+    "database": "PGDATABASE",
+    "databaseFieldType": "env",
+    "ssl": "false",
+    "sslFieldType": "bool",
+    "applicationName": "manufaction-nodered",
+    "applicationNameType": "str",
+    "max": "10",
+    "maxFieldType": "num",
+    "idle": "1000",
+    "idleFieldType": "num",
+    "connectionTimeout": "10000",
+    "connectionTimeoutFieldType": "num",
+    "user": "",
+    "userFieldType": "env",
+    "userEnv": "PGUSER",
+    "password": "",
+    "passwordFieldType": "env",
+    "passwordEnv": "PGPASSWORD"
+  },
+  {
+    "id": "mqtt_cfg",
+    "type": "mqtt-broker",
+    "name": "Manufaction MQTT",
+    "broker": "${MQTT_HOST}",
+    "port": "1883",
+    "clientid": "mf-nodered",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "30",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "c_ing",
+    "type": "comment",
+    "z": "tab_ingest",
+    "name": "mf/v1/site/{site}/asset/{asset}/{telemetry|status|event}  ->  mf.ingest()",
+    "info": "Node-RED validates and routes. The SQL function mf.ingest() owns the canonical write logic, so MQTT and REST input behave identically.",
+    "x": 330,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "ing_in",
+    "type": "mqtt in",
+    "z": "tab_ingest",
+    "name": "all asset messages",
+    "topic": "mf/v1/site/+/asset/+/+",
+    "qos": "1",
+    "datatype": "utf8",
+    "broker": "mqtt_cfg",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 140,
+    "y": 100,
+    "wires": [
+      [
+        "ing_validate"
+      ]
+    ]
+  },
+  {
+    "id": "ing_validate",
+    "type": "function",
+    "z": "tab_ingest",
+    "name": "Validate & route",
+    "func": "// topic: mf/v1/site/{site}/asset/{asset}/{type}\nconst p = msg.topic.split('/');\nif (p.length !== 7 || p[0] !== 'mf' || p[1] !== 'v1' || p[2] !== 'site' || p[4] !== 'asset') {\n    node.warn(`ignored topic ${msg.topic}`);\n    return null;\n}\nconst [site, asset, type] = [p[3], p[5], p[6]];\nif (type === 'command') return null;                  // our own outbound commands\nif (!['telemetry', 'status', 'event'].includes(type)) {\n    node.warn(`unknown message type '${type}' on ${msg.topic}`);\n    return null;\n}\nlet body;\ntry { body = JSON.parse(msg.payload); }\ncatch (e) { node.warn(`invalid JSON on ${msg.topic}`); return null; }\nif (body === null || typeof body !== 'object' || Array.isArray(body)) {\n    node.warn(`payload must be a JSON object on ${msg.topic}`); return null;\n}\nmsg.mf = { site, asset, type };\nmsg.query = 'SELECT mf.ingest($1, $2, $3, $4::jsonb) AS result';\nmsg.params = [site, asset, type, JSON.stringify(body)];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 360,
+    "y": 100,
+    "wires": [
+      [
+        "ing_pg"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "ing_pg",
+    "type": "postgresql",
+    "z": "tab_ingest",
+    "name": "mf.ingest()",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 560,
+    "y": 100,
+    "wires": [
+      [
+        "ing_follow"
+      ]
+    ]
+  },
+  {
+    "id": "ing_follow",
+    "type": "function",
+    "z": "tab_ingest",
+    "name": "Follow-up actions",
+    "func": "const r = msg.payload && msg.payload[0] && msg.payload[0].result;\nif (!r) return null;\nif (!r.ok) {\n    node.warn({ rejected: r, topic: msg.topic });\n    return [null, null, { payload: r, topic: msg.topic }];\n}\nconst done = r.order_completed;\nif (!done) return null;\n\n// 1) tell the machine the order is finished\nconst cmd = {\n    topic: `mf/v1/site/${done.site}/asset/${done.asset}/command`,\n    payload: { command: 'complete_order', order_number: done.order_number }\n};\n// 2) send the production receipt back to the (demo) ERP\nconst receipt = {\n    method: 'POST',\n    url: 'http://127.0.0.1:1880/demo-erp/receipts',\n    headers: { 'content-type': 'application/json',\n               authorization: 'Bearer ' + env.get('MF_API_TOKEN') },\n    payload: done\n};\nnode.status({ fill: 'green', shape: 'dot', text: `${done.order_number} complete` });\nreturn [cmd, receipt, null];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 770,
+    "y": 100,
+    "wires": [
+      [
+        "ing_cmd_out"
+      ],
+      [
+        "ing_erp_req"
+      ],
+      [
+        "ing_rejected"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "ing_cmd_out",
+    "type": "mqtt out",
+    "z": "tab_ingest",
+    "name": "command -> machine",
+    "topic": "",
+    "qos": "1",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "mqtt_cfg",
+    "x": 1010,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "ing_erp_req",
+    "type": "http request",
+    "z": "tab_ingest",
+    "name": "POST receipt to ERP",
+    "method": "use",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 1010,
+    "y": 100,
+    "wires": [
+      [
+        "ing_erp_dbg"
+      ]
+    ]
+  },
+  {
+    "id": "ing_erp_dbg",
+    "type": "debug",
+    "z": "tab_ingest",
+    "name": "ERP response",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1210,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "ing_rejected",
+    "type": "debug",
+    "z": "tab_ingest",
+    "name": "rejected messages",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1010,
+    "y": 140,
+    "wires": []
+  },
+  {
+    "id": "ing_catch",
+    "type": "catch",
+    "z": "tab_ingest",
+    "name": "errors on this tab",
+    "scope": null,
+    "uncaught": false,
+    "x": 140,
+    "y": 200,
+    "wires": [
+      [
+        "ing_err_dbg"
+      ]
+    ]
+  },
+  {
+    "id": "ing_err_dbg",
+    "type": "debug",
+    "z": "tab_ingest",
+    "name": "ingestion errors",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "error",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 360,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "c_api",
+    "type": "comment",
+    "z": "tab_api",
+    "name": "REST API v1  \u2014  http in -> prepare -> mf.* SQL -> respond",
+    "info": "Prepare functions have 3 outputs: [1] SQL query, [2] immediate HTTP response, [3] MQTT publish.",
+    "x": 300,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "api_in_0",
+    "type": "http in",
+    "z": "tab_api",
+    "name": "GET /api/v1/health",
+    "url": "/api/v1/health",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 100,
+    "wires": [
+      [
+        "api_prep_0"
+      ]
+    ]
+  },
+  {
+    "id": "api_prep_0",
+    "type": "function",
+    "z": "tab_api",
+    "name": "Health",
+    "func": "msg.route = 'health';\nmsg.query = 'SELECT now() AS db_time';\nmsg.params = [];\nreturn [msg, null, null];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 450,
+    "y": 100,
+    "wires": [
+      [
+        "api_pg"
+      ],
+      [
+        "api_resp"
+      ],
+      [
+        "api_mqtt"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "api_in_1",
+    "type": "http in",
+    "z": "tab_api",
+    "name": "GET /api/v1/assets",
+    "url": "/api/v1/assets",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 150,
+    "wires": [
+      [
+        "api_prep_1"
+      ]
+    ]
+  },
+  {
+    "id": "api_prep_1",
+    "type": "function",
+    "z": "tab_api",
+    "name": "List assets",
+    "func": "if (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401;\n    msg.payload = { error: 'unauthorized' };\n    return [null, msg, null];\n}\n\nmsg.route = 'data';\nmsg.query = 'SELECT mf.api_assets() AS data';\nmsg.params = [];\nreturn [msg, null, null];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 450,
+    "y": 150,
+    "wires": [
+      [
+        "api_pg"
+      ],
+      [
+        "api_resp"
+      ],
+      [
+        "api_mqtt"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "api_in_2",
+    "type": "http in",
+    "z": "tab_api",
+    "name": "GET /api/v1/assets/:asset_code",
+    "url": "/api/v1/assets/:asset_code",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 200,
+    "wires": [
+      [
+        "api_prep_2"
+      ]
+    ]
+  },
+  {
+    "id": "api_prep_2",
+    "type": "function",
+    "z": "tab_api",
+    "name": "Get asset",
+    "func": "if (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401;\n    msg.payload = { error: 'unauthorized' };\n    return [null, msg, null];\n}\n\nmsg.route = 'data';\nmsg.query = 'SELECT mf.api_asset($1) AS data';\nmsg.params = [msg.req.params.asset_code];\nreturn [msg, null, null];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 450,
+    "y": 200,
+    "wires": [
+      [
+        "api_pg"
+      ],
+      [
+        "api_resp"
+      ],
+      [
+        "api_mqtt"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "api_in_3",
+    "type": "http in",
+    "z": "tab_api",
+    "name": "GET /api/v1/production",
+    "url": "/api/v1/production",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 250,
+    "wires": [
+      [
+        "api_prep_3"
+      ]
+    ]
+  },
+  {
+    "id": "api_prep_3",
+    "type": "function",
+    "z": "tab_api",
+    "name": "List orders",
+    "func": "if (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401;\n    msg.payload = { error: 'unauthorized' };\n    return [null, msg, null];\n}\n\nmsg.route = 'data';\nmsg.query = 'SELECT mf.api_production(50) AS data';\nmsg.params = [];\nreturn [msg, null, null];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 450,
+    "y": 250,
+    "wires": [
+      [
+        "api_pg"
+      ],
+      [
+        "api_resp"
+      ],
+      [
+        "api_mqtt"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "api_in_4",
+    "type": "http in",
+    "z": "tab_api",
+    "name": "GET /api/v1/production/:order_number",
+    "url": "/api/v1/production/:order_number",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 300,
+    "wires": [
+      [
+        "api_prep_4"
+      ]
+    ]
+  },
+  {
+    "id": "api_prep_4",
+    "type": "function",
+    "z": "tab_api",
+    "name": "Get order",
+    "func": "if (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401;\n    msg.payload = { error: 'unauthorized' };\n    return [null, msg, null];\n}\n\nmsg.route = 'data';\nmsg.query = 'SELECT mf.api_order($1) AS data';\nmsg.params = [msg.req.params.order_number];\nreturn [msg, null, null];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 450,
+    "y": 300,
+    "wires": [
+      [
+        "api_pg"
+      ],
+      [
+        "api_resp"
+      ],
+      [
+        "api_mqtt"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "api_in_5",
+    "type": "http in",
+    "z": "tab_api",
+    "name": "GET /api/v1/dashboard",
+    "url": "/api/v1/dashboard",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 350,
+    "wires": [
+      [
+        "api_prep_5"
+      ]
+    ]
+  },
+  {
+    "id": "api_prep_5",
+    "type": "function",
+    "z": "tab_api",
+    "name": "Dashboard",
+    "func": "if (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401;\n    msg.payload = { error: 'unauthorized' };\n    return [null, msg, null];\n}\n\nmsg.route = 'data';\nmsg.query = 'SELECT mf.api_dashboard($1) AS data';\nmsg.params = [String(msg.req.query.site || 'demo')];\nreturn [msg, null, null];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 450,
+    "y": 350,
+    "wires": [
+      [
+        "api_pg"
+      ],
+      [
+        "api_resp"
+      ],
+      [
+        "api_mqtt"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "api_in_6",
+    "type": "http in",
+    "z": "tab_api",
+    "name": "POST /api/v1/production-orders",
+    "url": "/api/v1/production-orders",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 400,
+    "wires": [
+      [
+        "api_prep_6"
+      ]
+    ]
+  },
+  {
+    "id": "api_prep_6",
+    "type": "function",
+    "z": "tab_api",
+    "name": "Create order",
+    "func": "if (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401;\n    msg.payload = { error: 'unauthorized' };\n    return [null, msg, null];\n}\n\nconst b = msg.payload || {};\nconst asset = b.asset || b.asset_id;\nconst qty = Number(b.target_quantity);\nif (!asset || !b.order_number) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'asset and order_number are required' }; return [null, msg, null]; }\nif (!Number.isInteger(qty) || qty <= 0 || qty > 1000000) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'target_quantity must be a positive integer' }; return [null, msg, null]; }\nmsg.route = 'create_order';\nmsg.query = 'SELECT mf.create_order($1, $2, $3, $4, $5, $6) AS result';\nmsg.params = [String(b.site || 'demo'), String(asset), String(b.order_number),\n              b.part_number ? String(b.part_number) : null, qty, String(b.source_system || 'API')];\nreturn [msg, null, null];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 450,
+    "y": 400,
+    "wires": [
+      [
+        "api_pg"
+      ],
+      [
+        "api_resp"
+      ],
+      [
+        "api_mqtt"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "api_in_7",
+    "type": "http in",
+    "z": "tab_api",
+    "name": "POST /api/v1/telemetry",
+    "url": "/api/v1/telemetry",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 450,
+    "wires": [
+      [
+        "api_prep_7"
+      ]
+    ]
+  },
+  {
+    "id": "api_prep_7",
+    "type": "function",
+    "z": "tab_api",
+    "name": "Ingest telemetry",
+    "func": "if (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401;\n    msg.payload = { error: 'unauthorized' };\n    return [null, msg, null];\n}\n\nconst b = (msg.payload && typeof msg.payload === 'object') ? { ...msg.payload } : null;\nif (!b) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'JSON object body required' }; return [null, msg, null]; }\nconst asset = b.asset || b.asset_id;\nconst site = String(b.site || 'demo');\nif (!asset || !/^[A-Za-z0-9_.-]+$/.test(asset) || !/^[A-Za-z0-9_.-]+$/.test(site))\n    { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'valid asset (and optional site) required' }; return [null, msg, null]; }\nconst TYPE = 'telemetry';\nif (TYPE === 'telemetry' && (typeof b.signals !== 'object' || b.signals === null)) {\n    // accept flat bodies: { asset_id, temperature: 186.4, pressure: 1840 }\n    const signals = {};\n    for (const [k, v] of Object.entries(b)) {\n        if (!['site', 'asset', 'asset_id', 'timestamp', 'units'].includes(k)) signals[k] = v;\n    }\n    b.signals = signals;\n}\nif (TYPE === 'event' && !b.event_type) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'event_type required' }; return [null, msg, null]; }\nif (TYPE === 'status' && !b.status) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'status required' }; return [null, msg, null]; }\nb.timestamp = b.timestamp || new Date().toISOString();\nconst pub = { topic: `mf/v1/site/${site}/asset/${asset}/${TYPE}`, payload: JSON.stringify(b) };\nmsg.statusCode = 202;\nmsg.payload = { accepted: true, topic: pub.topic };\nreturn [null, msg, pub];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 450,
+    "y": 450,
+    "wires": [
+      [
+        "api_pg"
+      ],
+      [
+        "api_resp"
+      ],
+      [
+        "api_mqtt"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "api_in_8",
+    "type": "http in",
+    "z": "tab_api",
+    "name": "POST /api/v1/events",
+    "url": "/api/v1/events",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 500,
+    "wires": [
+      [
+        "api_prep_8"
+      ]
+    ]
+  },
+  {
+    "id": "api_prep_8",
+    "type": "function",
+    "z": "tab_api",
+    "name": "Ingest events",
+    "func": "if (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401;\n    msg.payload = { error: 'unauthorized' };\n    return [null, msg, null];\n}\n\nconst b = (msg.payload && typeof msg.payload === 'object') ? { ...msg.payload } : null;\nif (!b) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'JSON object body required' }; return [null, msg, null]; }\nconst asset = b.asset || b.asset_id;\nconst site = String(b.site || 'demo');\nif (!asset || !/^[A-Za-z0-9_.-]+$/.test(asset) || !/^[A-Za-z0-9_.-]+$/.test(site))\n    { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'valid asset (and optional site) required' }; return [null, msg, null]; }\nconst TYPE = 'event';\nif (TYPE === 'telemetry' && (typeof b.signals !== 'object' || b.signals === null)) {\n    // accept flat bodies: { asset_id, temperature: 186.4, pressure: 1840 }\n    const signals = {};\n    for (const [k, v] of Object.entries(b)) {\n        if (!['site', 'asset', 'asset_id', 'timestamp', 'units'].includes(k)) signals[k] = v;\n    }\n    b.signals = signals;\n}\nif (TYPE === 'event' && !b.event_type) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'event_type required' }; return [null, msg, null]; }\nif (TYPE === 'status' && !b.status) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'status required' }; return [null, msg, null]; }\nb.timestamp = b.timestamp || new Date().toISOString();\nconst pub = { topic: `mf/v1/site/${site}/asset/${asset}/${TYPE}`, payload: JSON.stringify(b) };\nmsg.statusCode = 202;\nmsg.payload = { accepted: true, topic: pub.topic };\nreturn [null, msg, pub];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 450,
+    "y": 500,
+    "wires": [
+      [
+        "api_pg"
+      ],
+      [
+        "api_resp"
+      ],
+      [
+        "api_mqtt"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "api_in_9",
+    "type": "http in",
+    "z": "tab_api",
+    "name": "POST /api/v1/status",
+    "url": "/api/v1/status",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 550,
+    "wires": [
+      [
+        "api_prep_9"
+      ]
+    ]
+  },
+  {
+    "id": "api_prep_9",
+    "type": "function",
+    "z": "tab_api",
+    "name": "Ingest status",
+    "func": "if (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401;\n    msg.payload = { error: 'unauthorized' };\n    return [null, msg, null];\n}\n\nconst b = (msg.payload && typeof msg.payload === 'object') ? { ...msg.payload } : null;\nif (!b) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'JSON object body required' }; return [null, msg, null]; }\nconst asset = b.asset || b.asset_id;\nconst site = String(b.site || 'demo');\nif (!asset || !/^[A-Za-z0-9_.-]+$/.test(asset) || !/^[A-Za-z0-9_.-]+$/.test(site))\n    { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'valid asset (and optional site) required' }; return [null, msg, null]; }\nconst TYPE = 'status';\nif (TYPE === 'telemetry' && (typeof b.signals !== 'object' || b.signals === null)) {\n    // accept flat bodies: { asset_id, temperature: 186.4, pressure: 1840 }\n    const signals = {};\n    for (const [k, v] of Object.entries(b)) {\n        if (!['site', 'asset', 'asset_id', 'timestamp', 'units'].includes(k)) signals[k] = v;\n    }\n    b.signals = signals;\n}\nif (TYPE === 'event' && !b.event_type) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'event_type required' }; return [null, msg, null]; }\nif (TYPE === 'status' && !b.status) { msg.statusCode = 400; msg.payload = { error: 'bad_request', detail: 'status required' }; return [null, msg, null]; }\nb.timestamp = b.timestamp || new Date().toISOString();\nconst pub = { topic: `mf/v1/site/${site}/asset/${asset}/${TYPE}`, payload: JSON.stringify(b) };\nmsg.statusCode = 202;\nmsg.payload = { accepted: true, topic: pub.topic };\nreturn [null, msg, pub];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 450,
+    "y": 550,
+    "wires": [
+      [
+        "api_pg"
+      ],
+      [
+        "api_resp"
+      ],
+      [
+        "api_mqtt"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "api_pg",
+    "type": "postgresql",
+    "z": "tab_api",
+    "name": "API query",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 680,
+    "y": 260,
+    "wires": [
+      [
+        "api_respond"
+      ]
+    ]
+  },
+  {
+    "id": "api_respond",
+    "type": "function",
+    "z": "tab_api",
+    "name": "Respond",
+    "func": "const row = (msg.payload && msg.payload[0]) || {};\nmsg.headers = { 'content-type': 'application/json', 'cache-control': 'no-store' };\n\nif (msg.route === 'health') {\n    msg.statusCode = 200;\n    msg.payload = { status: 'ok', service: 'manufaction', version: env.get('MF_VERSION') || '0.1.0',\n                    db_time: row.db_time };\n    return [msg, null];\n}\nif (msg.route === 'data') {\n    if (row.data === null || row.data === undefined) {\n        msg.statusCode = 404; msg.payload = { error: 'not_found' };\n    } else {\n        msg.statusCode = 200; msg.payload = row.data;\n    }\n    return [msg, null];\n}\nif (msg.route === 'create_order') {\n    const r = row.result || { ok: false, status_code: 500, error: 'no_result' };\n    msg.statusCode = r.status_code || (r.ok ? 201 : 400);\n    msg.payload = r.ok ? r.order : { error: r.error, detail: r.detail };\n    if (!r.ok) return [msg, null];\n    const o = r.order;\n    const cmd = {\n        topic: `mf/v1/site/${o.site}/asset/${o.asset}/command`,\n        payload: { command: 'start_order', order_number: o.order_number,\n                   part_number: o.part_number, target_quantity: o.target_quantity }\n    };\n    return [msg, cmd];\n}\nmsg.statusCode = 500; msg.payload = { error: 'unknown_route' };\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 870,
+    "y": 260,
+    "wires": [
+      [
+        "api_resp"
+      ],
+      [
+        "api_mqtt"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "api_resp",
+    "type": "http response",
+    "z": "tab_api",
+    "name": "respond",
+    "statusCode": "",
+    "headers": {},
+    "x": 1080,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "api_mqtt",
+    "type": "mqtt out",
+    "z": "tab_api",
+    "name": "publish",
+    "topic": "",
+    "qos": "1",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "mqtt_cfg",
+    "x": 1080,
+    "y": 300,
+    "wires": []
+  },
+  {
+    "id": "api_catch",
+    "type": "catch",
+    "z": "tab_api",
+    "name": "errors on this tab",
+    "scope": null,
+    "uncaught": false,
+    "x": 170,
+    "y": 640,
+    "wires": [
+      [
+        "api_err"
+      ]
+    ]
+  },
+  {
+    "id": "api_err",
+    "type": "function",
+    "z": "tab_api",
+    "name": "500 if a request is waiting",
+    "func": "if (!msg.res) return null;\nmsg.statusCode = msg.route === 'health' ? 503 : 500;\nmsg.headers = { 'content-type': 'application/json' };\nmsg.payload = { error: msg.route === 'health' ? 'database_unavailable' : 'internal_error' };\nnode.warn(msg.error && msg.error.message);\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 450,
+    "y": 640,
+    "wires": [
+      [
+        "api_resp"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "c_disp",
+    "type": "comment",
+    "z": "tab_dispatch",
+    "name": "Dispatch released orders (retries until the machine acknowledges with order_started)",
+    "info": "",
+    "x": 400,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "disp_tick",
+    "type": "inject",
+    "z": "tab_dispatch",
+    "name": "every 15s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "15",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "8",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 140,
+    "y": 100,
+    "wires": [
+      [
+        "disp_q"
+      ]
+    ]
+  },
+  {
+    "id": "disp_q",
+    "type": "function",
+    "z": "tab_dispatch",
+    "name": "pending orders",
+    "func": "msg.query = 'SELECT * FROM mf.pending_dispatch()';\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 320,
+    "y": 100,
+    "wires": [
+      [
+        "disp_pg"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "disp_pg",
+    "type": "postgresql",
+    "z": "tab_dispatch",
+    "name": "mf.pending_dispatch()",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 520,
+    "y": 100,
+    "wires": [
+      [
+        "disp_cmds"
+      ]
+    ]
+  },
+  {
+    "id": "disp_cmds",
+    "type": "function",
+    "z": "tab_dispatch",
+    "name": "start_order commands",
+    "func": "const rows = msg.payload || [];\nnode.status({ text: `${rows.length} dispatched @ ${new Date().toLocaleTimeString()}` });\nreturn [rows.map(o => ({\n    topic: `mf/v1/site/${o.site_code}/asset/${o.asset_code}/command`,\n    payload: { command: 'start_order', order_number: o.order_number,\n               part_number: o.part_number, target_quantity: o.target_quantity }\n}))];",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 740,
+    "y": 100,
+    "wires": [
+      [
+        "disp_out"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "disp_out",
+    "type": "mqtt out",
+    "z": "tab_dispatch",
+    "name": "command -> machine",
+    "topic": "",
+    "qos": "1",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "mqtt_cfg",
+    "x": 960,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "purge_tick",
+    "type": "inject",
+    "z": "tab_dispatch",
+    "name": "daily",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "86400",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "60",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 140,
+    "y": 180,
+    "wires": [
+      [
+        "purge_q"
+      ]
+    ]
+  },
+  {
+    "id": "purge_q",
+    "type": "function",
+    "z": "tab_dispatch",
+    "name": "keep N days telemetry",
+    "func": "msg.query = 'SELECT mf.purge_telemetry($1) AS deleted';\nmsg.params = [Number(env.get('MF_TELEMETRY_KEEP_DAYS') || 7)];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 330,
+    "y": 180,
+    "wires": [
+      [
+        "purge_pg"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "purge_pg",
+    "type": "postgresql",
+    "z": "tab_dispatch",
+    "name": "mf.purge_telemetry()",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 540,
+    "y": 180,
+    "wires": [
+      [
+        "purge_dbg"
+      ]
+    ]
+  },
+  {
+    "id": "purge_dbg",
+    "type": "debug",
+    "z": "tab_dispatch",
+    "name": "purged rows",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 740,
+    "y": 180,
+    "wires": []
+  },
+  {
+    "id": "disp_catch",
+    "type": "catch",
+    "z": "tab_dispatch",
+    "name": "errors on this tab",
+    "scope": null,
+    "uncaught": false,
+    "x": 140,
+    "y": 240,
+    "wires": [
+      [
+        "disp_err"
+      ]
+    ]
+  },
+  {
+    "id": "disp_err",
+    "type": "debug",
+    "z": "tab_dispatch",
+    "name": "engine errors",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "error",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 330,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "c_erp",
+    "type": "comment",
+    "z": "tab_erp",
+    "name": "ERP -> Manufaction: release an order to every idle machine (via the public API)",
+    "info": "",
+    "x": 380,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "erp_tick",
+    "type": "inject",
+    "z": "tab_erp",
+    "name": "every 20s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "20",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "15",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 140,
+    "y": 100,
+    "wires": [
+      [
+        "erp_q"
+      ]
+    ]
+  },
+  {
+    "id": "erp_q",
+    "type": "function",
+    "z": "tab_erp",
+    "name": "assets needing work",
+    "func": "if (env.get('DEMO_ERP_ENABLED') === 'false') return null;\nmsg.query = 'SELECT * FROM demo_erp.assets_needing_orders()';\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 330,
+    "y": 100,
+    "wires": [
+      [
+        "erp_pg"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "erp_pg",
+    "type": "postgresql",
+    "z": "tab_erp",
+    "name": "demo_erp.assets_needing_orders()",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 580,
+    "y": 100,
+    "wires": [
+      [
+        "erp_orders"
+      ]
+    ]
+  },
+  {
+    "id": "erp_orders",
+    "type": "function",
+    "z": "tab_erp",
+    "name": "build orders",
+    "func": "const SIZE = { 'PRESS-001': [30, 60], 'CNC-001': [8, 16], 'ASSEMBLY-001': [12, 24] };\nconst d = new Date();\nconst stamp = d.toISOString().slice(2, 10).replace(/-/g, '');\nreturn [(msg.payload || []).map(a => {\n    const [lo, hi] = SIZE[a.asset_code] || [10, 20];\n    const order = {\n        site: a.site_code, asset: a.asset_code, part_number: a.part_number,\n        order_number: `MO-${stamp}-${Math.floor(Math.random() * 9000 + 1000)}`,\n        target_quantity: Math.floor(Math.random() * (hi - lo + 1)) + lo,\n        source_system: 'DEMO-ERP'\n    };\n    return {\n        method: 'POST', url: 'http://127.0.0.1:1880/api/v1/production-orders',\n        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + env.get('MF_API_TOKEN') },\n        payload: order\n    };\n})];",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 820,
+    "y": 100,
+    "wires": [
+      [
+        "erp_req"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "erp_req",
+    "type": "http request",
+    "z": "tab_erp",
+    "name": "POST /api/v1/production-orders",
+    "method": "use",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 1060,
+    "y": 100,
+    "wires": [
+      [
+        "erp_dbg"
+      ]
+    ]
+  },
+  {
+    "id": "erp_dbg",
+    "type": "debug",
+    "z": "tab_erp",
+    "name": "order released",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1280,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "c_erp2",
+    "type": "comment",
+    "z": "tab_erp",
+    "name": "Manufaction -> ERP: production receipts",
+    "info": "",
+    "x": 260,
+    "y": 180,
+    "wires": []
+  },
+  {
+    "id": "erp_in",
+    "type": "http in",
+    "z": "tab_erp",
+    "name": "POST /demo-erp/receipts",
+    "url": "/demo-erp/receipts",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 160,
+    "y": 230,
+    "wires": [
+      [
+        "erp_rec"
+      ]
+    ]
+  },
+  {
+    "id": "erp_rec",
+    "type": "function",
+    "z": "tab_erp",
+    "name": "record receipt",
+    "func": "if (!global.get('mfAuthorize')(msg.req)) {\n    msg.statusCode = 401;\n    msg.payload = { error: 'unauthorized' };\n    return [null, msg, null];\n}\n\nmsg.query = 'SELECT demo_erp.record_receipt($1::jsonb) AS result';\nmsg.params = [JSON.stringify(msg.payload || {})];\nreturn [msg, null, null];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 230,
+    "wires": [
+      [
+        "erp_rec_pg"
+      ],
+      [
+        "erp_resp"
+      ],
+      []
+    ],
+    "info": ""
+  },
+  {
+    "id": "erp_rec_pg",
+    "type": "postgresql",
+    "z": "tab_erp",
+    "name": "demo_erp.record_receipt()",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 600,
+    "y": 230,
+    "wires": [
+      [
+        "erp_rec_ok"
+      ]
+    ]
+  },
+  {
+    "id": "erp_rec_ok",
+    "type": "function",
+    "z": "tab_erp",
+    "name": "201",
+    "func": "msg.statusCode = 201;\nmsg.payload = msg.payload[0].result;\nnode.status({ fill: 'blue', shape: 'dot', text: `receipt ${msg.payload.receipt_id}` });\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 800,
+    "y": 230,
+    "wires": [
+      [
+        "erp_resp"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "erp_resp",
+    "type": "http response",
+    "z": "tab_erp",
+    "name": "respond",
+    "statusCode": "",
+    "headers": {},
+    "x": 960,
+    "y": 230,
+    "wires": []
+  },
+  {
+    "id": "erp_catch",
+    "type": "catch",
+    "z": "tab_erp",
+    "name": "errors on this tab",
+    "scope": null,
+    "uncaught": false,
+    "x": 160,
+    "y": 300,
+    "wires": [
+      [
+        "erp_err"
+      ]
+    ]
+  },
+  {
+    "id": "erp_err",
+    "type": "function",
+    "z": "tab_erp",
+    "name": "500",
+    "func": "if (!msg.res) { node.warn(msg.error && msg.error.message); return null; }\nmsg.statusCode = 500; msg.payload = { error: 'internal_error' };\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 300,
+    "wires": [
+      [
+        "erp_resp"
+      ]
+    ],
+    "info": ""
+  }
+]

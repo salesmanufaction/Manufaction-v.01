@@ -1,0 +1,6 @@
+{
+  "mqtt_cfg": {
+    "user": "${MQTT_NODERED_USER}",
+    "password": "${MQTT_NODERED_PASSWORD}"
+  }
+}
