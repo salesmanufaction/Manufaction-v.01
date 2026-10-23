@@ -31,8 +31,8 @@ add({"id": "ui_base", "type": "ui-base", "name": "Manufaction", "path": "/dashbo
      "acceptsClientConfig": ["ui-notification", "ui-control"], "showPathInSidebar": False, "headerContent": "page",
      "navigationStyle": "default", "titleBarStyle": "default", "showReconnectNotification": True, "notificationDisplayTime": 1,
      "showDisconnectNotification": True, "allowInstall": False})
-THEME_COLORS = {"surface": "#ffffff", "primary": "#0f766e", "bgPage": "#f1f5f4", "groupBg": "#ffffff", "groupOutline": "#d5dedc"}
-add({"id": "ui_theme", "type": "ui-theme", "name": "Brand theme",
+THEME_COLORS = {"surface": "#ffffff", "primary": "#1f2937", "bgPage": "#eef0f2", "groupBg": "#ffffff", "groupOutline": "#d3d8de"}
+add({"id": "ui_theme", "type": "ui-theme", "name": "Brand theme (Steel & Safety)",
      "colors": THEME_COLORS,
      "sizes": {"density": "default", "pagePadding": "12px", "groupGap": "12px", "groupBorderRadius": "8px", "widgetGap": "12px"}})
 
@@ -85,9 +85,7 @@ for gid, nm, w, o in [("g_head", "Plant", 12, 0), ("g_kpi", "Today", 12, 1), ("g
                       ("g_feed", "Recent notices", 12, 8)]:
     group(gid, "pg_over", nm, w, o, show=(gid not in ("g_head", "g_kpi", "g_alert", "g_mach")))
 y = 90
-view("tab_over", "plant", {"type": "ui-text", "group": "g_head", "order": 1, "width": 12, "height": 1, "name": "Plant name", "label": "",
-      "format": "{{msg.payload}}", "layout": "row-left", "style": True, "font": "", "fontSize": 20, "color": "#0f766e",
-      "wrapText": False, "className": "", "value": "payload", "valueType": "msg"}, y, every=30); y += 70
+view("tab_over", "plant", tpl("g_head", "Brand header", rd("tpl_header.vue"), 1), y, every=30); y += 70
 view("tab_over", "kpis", tpl("g_kpi", "KPI tiles", rd("tpl_kpis.vue"), 1), y); y += 70
 view("tab_over", "alerts", tpl("g_alert", "Alert banner", rd("tpl_alerts.vue"), 1), y); y += 70
 view("tab_over", "machines", tpl("g_mach", "Machine cards", rd("tpl_machines.vue"), 1), y); y += 70

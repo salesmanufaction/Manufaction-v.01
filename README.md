@@ -148,6 +148,10 @@ DASH=<path to node-red-dashboard> node tools/lint_flows.js core/data/flows.json 
 
 `tools/flowsim` is a small Node-RED look-alike that runs function nodes and wiring. It does **not** run real Node-RED or Dashboard 2, so the first `docker compose up` is the real integration test. See "Known unknowns" in `docs/ARCHITECTURE.md`.
 
+## Branding
+
+Logo, favicon and editor colours live in `brand/` (graphite, safety yellow, steel; the "Signal M" mark). Both Node-RED logins and editor headers use them, and the dashboard theme matches. To rebrand for a customer see [`brand/README.md`](brand/README.md); the product name comes from `MF_BRAND_NAME` in `.env`. The editor CSS uses Node-RED theme variables and has not been seen in a browser yet: expect small tweaks.
+
 ## Pinning
 
 After the first successful build, pin the exact versions (`docker compose exec studio npm ls --depth=0`) in `studio/Dockerfile` and `core/Dockerfile`.
@@ -165,6 +169,7 @@ postgres/init/            schema, seed (machines, settings, fault codes), restri
 postgres/demo/            demo history and reset SQL
 simulator/                Python virtual factory (stands in for Manufaction Edge)
 scripts/                  setup, smoke test, demo helpers, notify test
+brand/                    logo, favicon, editor colours (mounted into both editors)
 tools/                    flow simulator + tests, flow linter, flow generators
 docs/                     ARCHITECTURE, CUSTOMER_GUIDE, DEMO_SCRIPT
 deploy/                   cheap-VM deployment

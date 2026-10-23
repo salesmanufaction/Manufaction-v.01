@@ -56,6 +56,7 @@ function mfAuthorize(req) {
 
 const adminHash = process.env.CORE_ADMIN_HASH;
 const brand = process.env.MF_BRAND_NAME || 'Manufaction';
+const brandDir = process.env.MF_BRAND_DIR || '/brand';   // logo + editor.css, mounted from ./brand
 
 module.exports = {
     flowFile: 'flows.json',
@@ -87,8 +88,13 @@ module.exports = {
 
     editorTheme: {
         projects: { enabled: false },
-        page: { title: `${brand} CORE` },
-        header: { title: `${brand} CORE (owner)` },
+        page: {
+            title: `${brand} CORE`,
+            favicon: `${brandDir}/favicon.png`,
+            css: `${brandDir}/editor.css`,
+        },
+        header: { title: `${brand} CORE (owner)`, image: `${brandDir}/header.png` },
+        login: { image: `${brandDir}/mark.png` },
         tours: false,
     },
 };

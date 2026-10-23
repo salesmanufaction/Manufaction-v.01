@@ -50,7 +50,7 @@ export default {
 .mf-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
 .mf-card { border-radius: 8px; padding: 14px; background: rgba(var(--v-theme-on-group-background), 0.06); border-top: 4px solid #64748b; }
 .mf-card.st-running { border-top-color: #22c55e; }
-.mf-card.st-idle { border-top-color: #38bdf8; }
+.mf-card.st-idle { border-top-color: #facc15; }
 .mf-card.st-faulted { border-top-color: #ef4444; background: rgba(239, 68, 68, .12); }
 .mf-card.st-stopped { border-top-color: #f59e0b; }
 .mf-card.st-maintenance { border-top-color: #a855f7; }
@@ -59,7 +59,7 @@ export default {
 .mf-sub { font-size: 12px; opacity: .65; }
 .mf-pill { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 3px 9px; border-radius: 999px; background: #64748b; color: #fff; }
 .st-running .mf-pill { background: #16a34a; }
-.st-idle .mf-pill { background: #0284c7; }
+.st-idle .mf-pill { background: #facc15; color: #1f2937; }
 .st-faulted .mf-pill { background: #dc2626; }
 .st-stopped .mf-pill { background: #d97706; }
 .st-maintenance .mf-pill { background: #9333ea; }
@@ -69,6 +69,6 @@ export default {
 .mf-sig span { opacity: .7; text-transform: capitalize; }
 .mf-order-top { display: flex; justify-content: space-between; font-size: 12px; opacity: .85; margin-bottom: 4px; }
 .mf-bar { height: 8px; border-radius: 4px; background: rgba(var(--v-theme-on-group-background), 0.12); overflow: hidden; }
-.mf-fill { height: 100%; background: #38bdf8; transition: width .6s; }
+.mf-fill { height: 100%; background: #facc15; transition: width .6s; }
 .mf-noorder { font-size: 12px; opacity: .55; }
 </style>

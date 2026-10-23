@@ -1,0 +1,36 @@
+/* Manufaction brand for the Node-RED editor and its login page.
+   Colours: graphite #1F2937, safety yellow #FACC15, steel #475569.
+   Loaded through editorTheme.page.css in core/data/settings.js and studio/data/settings.js.
+   If a Node-RED upgrade renames a variable, the plain selectors below still apply. */
+:root {
+    --red-ui-header-background: #1f2937;
+    --red-ui-header-menu-color: #ffffff;
+    --red-ui-deploy-button-background: #facc15;
+    --red-ui-deploy-button-background-hover: #fde047;
+    --red-ui-deploy-button-color: #1f2937;
+    --red-ui-primary-background: #ffffff;
+    --red-ui-text-color-link: #475569;
+}
+#red-ui-header {
+    background: #1f2937;
+    border-bottom: 4px solid #facc15;
+}
+#red-ui-header .red-ui-header-logo,
+#red-ui-header span.red-ui-header-logo { color: #ffffff; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+#red-ui-header-button-deploy { background: #facc15 !important; color: #1f2937 !important; }
+#red-ui-header-button-deploy span { color: #1f2937 !important; }
+
+/* Login page */
+#red-ui-login-form,
+.red-ui-login-form { max-width: 360px; }
+.red-ui-login-form input[type=submit],
+#red-ui-login-form input[type=submit],
+.red-ui-login-submit {
+    background: #facc15 !important;
+    color: #1f2937 !important;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    border: 0;
+}
+.red-ui-login-image img, #red-ui-login-image { width: 96px; height: 96px; }

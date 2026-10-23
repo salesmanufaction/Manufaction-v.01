@@ -65,6 +65,7 @@ services:
       MQTT_NODERED_PASSWORD: ${MQTT_NODERED_PASSWORD}
     volumes:
       - ./core/data:/data                          # flows.json lives in Git
+      - ./brand:/brand:ro                          # logo + editor colours
     ports:
       - "127.0.0.1:1880:1880"                      # owner editor: SSH tunnel only, never public
     depends_on:
@@ -93,6 +94,7 @@ services:
       PGPASSWORD: ${STUDIO_DB_PASSWORD:?set STUDIO_DB_PASSWORD in .env}
     volumes:
       - ./studio/data:/data
+      - ./brand:/brand:ro
     ports:
       - "127.0.0.1:1881:1880"                      # direct access for the owner (SSH tunnel)
     depends_on:
