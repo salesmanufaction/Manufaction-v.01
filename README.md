@@ -27,7 +27,7 @@ A small but real manufacturing integration stack: a virtual factory publishes ma
 
 ## What happens when it runs
 
-1. The **simulator** comes online and publishes status and telemetry for three machines.
+1. The **simulator** comes online and publishes status and telemetry for six machines.
 2. The **demo ERP** (Node-RED tab 04) sees idle machines and `POST`s a work order to `/api/v1/production-orders` for each one.
 3. The API stores the order and publishes a `start_order` **command** to the machine over MQTT.
 4. The machine starts cycling: every cycle is a `cycle_complete` event with a quality result; random faults create downtime with reason codes.

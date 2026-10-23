@@ -2,7 +2,7 @@
 Manufaction v0.1 — virtual factory.
 
 Plays the role of a future Manufaction Edge device: publishes telemetry, status and
-events for three machines over MQTT, and obeys commands sent back from the cloud.
+events for six machines over MQTT, and obeys commands sent back from the cloud.
 
 Topics (all under mf/v1/site/{SITE}/asset/{ASSET}/...):
   telemetry  every TELEMETRY_SECONDS   {"timestamp", "asset_id", "signals": {...}, "units": {...}}
@@ -107,6 +107,9 @@ MACHINES = {
         Machine("PRESS-001", "press", 8.0),
         Machine("CNC-001", "cnc", 20.0),
         Machine("ASSEMBLY-001", "assembly", 15.0),
+        Machine("PRESS-002", "press", 10.0),
+        Machine("CNC-002", "cnc", 25.0),
+        Machine("ASSEMBLY-002", "assembly", 18.0),
     ]
 }
 
