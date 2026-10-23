@@ -29,7 +29,7 @@
     "type": "ui-base",
     "name": "Manufaction",
     "path": "/dashboard",
-    "appIcon": "",
+    "appIcon": "/brand/favicon.png",
     "includeClientData": true,
     "acceptsClientConfig": [
       "ui-notification",
@@ -100,12 +100,12 @@
     "disabled": false
   },
   {
-    "id": "pg_admin",
+    "id": "pg_ana",
     "type": "ui-page",
-    "name": "Settings",
+    "name": "Analytics",
     "ui": "ui_base",
-    "path": "/settings",
-    "icon": "settings",
+    "path": "/analytics",
+    "icon": "chart-line",
     "layout": "grid",
     "theme": "ui_theme",
     "breakpoints": [
@@ -136,11 +136,47 @@
     "disabled": false
   },
   {
+    "id": "pg_admin",
+    "type": "ui-page",
+    "name": "Settings",
+    "ui": "ui_base",
+    "path": "/settings",
+    "icon": "settings",
+    "layout": "grid",
+    "theme": "ui_theme",
+    "breakpoints": [
+      {
+        "name": "Default",
+        "px": 0,
+        "cols": 3
+      },
+      {
+        "name": "Tablet",
+        "px": 576,
+        "cols": 6
+      },
+      {
+        "name": "Small Desktop",
+        "px": 768,
+        "cols": 9
+      },
+      {
+        "name": "Desktop",
+        "px": 1024,
+        "cols": 12
+      }
+    ],
+    "order": 3,
+    "className": "",
+    "visible": true,
+    "disabled": false
+  },
+  {
     "id": "tab_over",
     "type": "tab",
     "label": "Plant overview",
     "disabled": false,
-    "info": "Everything on the Plant overview page. Each row of nodes is one panel: a timer asks the database a question, a function shapes the answer, and a widget draws it. To change a panel, edit its SQL (the 'Query' function) or its look (the template). Nothing here can change production data: this instance logs in to the database with a restricted user."
+    "info": "The Plant overview page: headline numbers and one card per machine. Each row of nodes is one panel: a timer asks the database a question, a function shapes the answer, and a widget draws it. To change a panel, edit its SQL (the 'Query' function) or its look (the template). Nothing here can change production data: this instance logs in to the database with a restricted user."
   },
   {
     "id": "c_over",
@@ -181,98 +217,14 @@
     "groupType": "default"
   },
   {
-    "id": "g_alert",
-    "type": "ui-group",
-    "name": "Alerts",
-    "page": "pg_over",
-    "width": 12,
-    "height": 1,
-    "order": 2,
-    "showTitle": false,
-    "className": "",
-    "visible": true,
-    "disabled": false,
-    "groupType": "default"
-  },
-  {
     "id": "g_mach",
     "type": "ui-group",
     "name": "Machines",
     "page": "pg_over",
     "width": 12,
     "height": 1,
-    "order": 3,
+    "order": 2,
     "showTitle": false,
-    "className": "",
-    "visible": true,
-    "disabled": false,
-    "groupType": "default"
-  },
-  {
-    "id": "g_dt",
-    "type": "ui-group",
-    "name": "Downtime today",
-    "page": "pg_over",
-    "width": 6,
-    "height": 1,
-    "order": 4,
-    "showTitle": true,
-    "className": "",
-    "visible": true,
-    "disabled": false,
-    "groupType": "default"
-  },
-  {
-    "id": "g_ord",
-    "type": "ui-group",
-    "name": "Production orders",
-    "page": "pg_over",
-    "width": 6,
-    "height": 1,
-    "order": 5,
-    "showTitle": true,
-    "className": "",
-    "visible": true,
-    "disabled": false,
-    "groupType": "default"
-  },
-  {
-    "id": "g_wr",
-    "type": "ui-group",
-    "name": "Maintenance work requests",
-    "page": "pg_over",
-    "width": 6,
-    "height": 1,
-    "order": 6,
-    "showTitle": true,
-    "className": "",
-    "visible": true,
-    "disabled": false,
-    "groupType": "default"
-  },
-  {
-    "id": "g_rcpt",
-    "type": "ui-group",
-    "name": "Receipts sent to the ERP",
-    "page": "pg_over",
-    "width": 6,
-    "height": 1,
-    "order": 7,
-    "showTitle": true,
-    "className": "",
-    "visible": true,
-    "disabled": false,
-    "groupType": "default"
-  },
-  {
-    "id": "g_feed",
-    "type": "ui-group",
-    "name": "Recent notices",
-    "page": "pg_over",
-    "width": 12,
-    "height": 1,
-    "order": 8,
-    "showTitle": true,
     "className": "",
     "visible": true,
     "disabled": false,
@@ -493,113 +445,6 @@
     ]
   },
   {
-    "id": "alerts_i",
-    "type": "inject",
-    "z": "tab_over",
-    "name": "Every 3 s",
-    "props": [
-      {
-        "p": "payload"
-      }
-    ],
-    "repeat": "3",
-    "crontab": "",
-    "once": true,
-    "onceDelay": "1",
-    "topic": "",
-    "payload": "",
-    "payloadType": "date",
-    "x": 150,
-    "y": 230,
-    "wires": [
-      [
-        "alerts_q"
-      ]
-    ]
-  },
-  {
-    "id": "alerts_q",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Query: alerts",
-    "func": "// Machines that are down right now (the red banner)\nmsg.query = `\nSELECT a.asset_code, a.name, d.status,\n       COALESCE(d.reason_description, d.reason_code, 'No reason reported') AS reason,\n       d.started_at, r.request_number AS work_request, r.assigned_to\n  FROM mf.downtime_events d\n  JOIN mf.assets a ON a.id = d.asset_id\n  LEFT JOIN mf.maintenance_requests r ON r.downtime_event_id = d.id\n WHERE d.ended_at IS NULL\n   AND d.status IN (SELECT jsonb_array_elements_text(value) FROM mf.settings WHERE key = 'alert_statuses')\n ORDER BY d.started_at\n`;\nmsg.params = [];\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 340,
-    "y": 230,
-    "wires": [
-      [
-        "alerts_p"
-      ]
-    ]
-  },
-  {
-    "id": "alerts_p",
-    "type": "postgresql",
-    "z": "tab_over",
-    "name": "Run SQL",
-    "query": "",
-    "postgreSQLConfig": "pg_cfg",
-    "split": false,
-    "rowsPerMsg": 1,
-    "outputs": 1,
-    "x": 530,
-    "y": 230,
-    "wires": [
-      [
-        "alerts_s"
-      ]
-    ]
-  },
-  {
-    "id": "alerts_s",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Shape for the screen",
-    "func": "msg.payload = msg.payload || [];\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 700,
-    "y": 230,
-    "wires": [
-      [
-        "alerts_w"
-      ]
-    ]
-  },
-  {
-    "type": "ui-template",
-    "group": "g_alert",
-    "page": "",
-    "ui": "",
-    "name": "Alert banner",
-    "order": 1,
-    "width": 12,
-    "height": 0,
-    "head": "",
-    "format": "<template>\n  <div>\n    <div v-if=\"alerts.length === 0\" class=\"mf-clear\">All clear: no machine is down.</div>\n    <div v-for=\"a in alerts\" :key=\"a.asset_code + a.started_at\" class=\"mf-alert\">\n      <div class=\"mf-alert-main\">\n        <b>{{ a.asset_code }}</b> {{ a.status === 'faulted' ? 'FAULT' : 'STOPPED' }}: {{ a.reason }}\n      </div>\n      <div class=\"mf-alert-sub\">\n        since {{ since(a.started_at) }}\n        <span v-if=\"a.work_request\"> \u00b7 work request <b>{{ a.work_request }}</b> sent to {{ a.assigned_to }}</span>\n      </div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    alerts: function () { return (this.msg && Array.isArray(this.msg.payload)) ? this.msg.payload : [] }\n  },\n  methods: {\n    since: function (iso) {\n      var s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000))\n      if (s < 60) return s + ' s ago'\n      if (s < 3600) return Math.floor(s / 60) + ' min ago'\n      return Math.floor(s / 3600) + ' h ' + Math.floor((s % 3600) / 60) + ' min ago'\n    }\n  }\n}\n</script>\n\n<style>\n.mf-clear { padding: 10px 14px; border-radius: 8px; background: rgba(34, 197, 94, .14); border-left: 4px solid #22c55e; }\n.mf-alert { padding: 10px 14px; margin-bottom: 8px; border-radius: 8px; background: rgba(239, 68, 68, .16); border-left: 4px solid #ef4444; }\n.mf-alert-main { font-size: 16px; }\n.mf-alert-sub { font-size: 12px; opacity: .8; margin-top: 2px; }\n</style>",
-    "storeOutMessages": true,
-    "passthru": true,
-    "resendOnRefresh": true,
-    "templateScope": "local",
-    "className": "",
-    "id": "alerts_w",
-    "z": "tab_over",
-    "x": 910,
-    "y": 230,
-    "wires": [
-      []
-    ]
-  },
-  {
     "id": "machines_i",
     "type": "inject",
     "z": "tab_over",
@@ -617,7 +462,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 300,
+    "y": 230,
     "wires": [
       [
         "machines_q"
@@ -637,7 +482,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 300,
+    "y": 230,
     "wires": [
       [
         "machines_p"
@@ -655,7 +500,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 530,
-    "y": 300,
+    "y": 230,
     "wires": [
       [
         "machines_s"
@@ -675,7 +520,7 @@
     "finalize": "",
     "libs": [],
     "x": 700,
-    "y": 300,
+    "y": 230,
     "wires": [
       [
         "machines_w"
@@ -701,554 +546,7 @@
     "id": "machines_w",
     "z": "tab_over",
     "x": 910,
-    "y": 300,
-    "wires": [
-      []
-    ]
-  },
-  {
-    "id": "downtime_i",
-    "type": "inject",
-    "z": "tab_over",
-    "name": "Every 3 s",
-    "props": [
-      {
-        "p": "payload"
-      }
-    ],
-    "repeat": "3",
-    "crontab": "",
-    "once": true,
-    "onceDelay": "1",
-    "topic": "",
-    "payload": "",
-    "payloadType": "date",
-    "x": 150,
-    "y": 370,
-    "wires": [
-      [
-        "downtime_q"
-      ]
-    ]
-  },
-  {
-    "id": "downtime_q",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Query: downtime",
-    "func": "// Minutes of downtime today for each machine\nmsg.query = `\nWITH plant AS (\n  SELECT (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1)\nSELECT a.asset_code,\n       COALESCE(ROUND((SUM(EXTRACT(EPOCH FROM (COALESCE(d.ended_at, now()) - GREATEST(d.started_at, p.day_start)))) / 60.0)::numeric, 1), 0)::float AS minutes,\n       COUNT(d.id)::int AS events,\n       MODE() WITHIN GROUP (ORDER BY d.reason_code) AS top_reason\n  FROM mf.assets a\n  CROSS JOIN plant p\n  LEFT JOIN mf.downtime_events d ON d.asset_id = a.id AND COALESCE(d.ended_at, now()) >= p.day_start\n GROUP BY a.asset_code\n ORDER BY a.asset_code\n`;\nmsg.params = [];\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 340,
-    "y": 370,
-    "wires": [
-      [
-        "downtime_p"
-      ]
-    ]
-  },
-  {
-    "id": "downtime_p",
-    "type": "postgresql",
-    "z": "tab_over",
-    "name": "Run SQL",
-    "query": "",
-    "postgreSQLConfig": "pg_cfg",
-    "split": false,
-    "rowsPerMsg": 1,
-    "outputs": 1,
-    "x": 530,
-    "y": 370,
-    "wires": [
-      [
-        "downtime_s"
-      ]
-    ]
-  },
-  {
-    "id": "downtime_s",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Shape for the screen",
-    "func": "msg.payload = msg.payload || [];\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 700,
-    "y": 370,
-    "wires": [
-      [
-        "downtime_w"
-      ]
-    ]
-  },
-  {
-    "type": "ui-template",
-    "group": "g_dt",
-    "page": "",
-    "ui": "",
-    "name": "Downtime bars",
-    "order": 1,
-    "width": 6,
-    "height": 0,
-    "head": "",
-    "format": "<template>\n  <div>\n    <div v-for=\"r in rows\" :key=\"r.asset_code\" class=\"mf-dt-row\">\n      <div class=\"mf-dt-name\">{{ r.asset_code }}</div>\n      <div class=\"mf-dt-track\"><div class=\"mf-dt-fill\" :style=\"{ width: width(r) + '%' }\"></div></div>\n      <div class=\"mf-dt-val\">{{ r.minutes }} min</div>\n      <div class=\"mf-dt-why\">{{ r.events }} event{{ r.events === 1 ? '' : 's' }}<span v-if=\"r.top_reason\"> \u00b7 {{ r.top_reason }}</span></div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    rows: function () { return (this.msg && Array.isArray(this.msg.payload)) ? this.msg.payload : [] },\n    max: function () {\n      var m = 0\n      this.rows.forEach(function (r) { if (r.minutes > m) m = r.minutes })\n      return m || 1\n    }\n  },\n  methods: {\n    width: function (r) { return Math.round(100 * r.minutes / this.max) }\n  }\n}\n</script>\n\n<style>\n.mf-dt-row { display: grid; grid-template-columns: 110px 1fr 70px; gap: 8px; align-items: center; margin-bottom: 8px; }\n.mf-dt-name { font-size: 13px; font-weight: 600; }\n.mf-dt-track { height: 10px; border-radius: 5px; background: rgba(var(--v-theme-on-group-background), 0.12); overflow: hidden; }\n.mf-dt-fill { height: 100%; background: #ef4444; }\n.mf-dt-val { text-align: right; font-size: 13px; }\n.mf-dt-why { grid-column: 2 / 4; font-size: 11px; opacity: .6; margin-top: -4px; }\n</style>",
-    "storeOutMessages": true,
-    "passthru": true,
-    "resendOnRefresh": true,
-    "templateScope": "local",
-    "className": "",
-    "id": "downtime_w",
-    "z": "tab_over",
-    "x": 910,
-    "y": 370,
-    "wires": [
-      []
-    ]
-  },
-  {
-    "id": "orders_i",
-    "type": "inject",
-    "z": "tab_over",
-    "name": "Every 3 s",
-    "props": [
-      {
-        "p": "payload"
-      }
-    ],
-    "repeat": "3",
-    "crontab": "",
-    "once": true,
-    "onceDelay": "1",
-    "topic": "",
-    "payload": "",
-    "payloadType": "date",
-    "x": 150,
-    "y": 440,
-    "wires": [
-      [
-        "orders_q"
-      ]
-    ]
-  },
-  {
-    "id": "orders_q",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Query: orders",
-    "func": "// Latest production orders\nmsg.query = `\nSELECT o.order_number, a.asset_code, o.part_number, o.completed_quantity, o.scrap_quantity,\n       o.target_quantity, o.status, o.released_at\n  FROM mf.production_orders o LEFT JOIN mf.assets a ON a.id = o.asset_id\n ORDER BY (o.status IN ('released','running')) DESC, o.released_at DESC\n LIMIT 10\n`;\nmsg.params = [];\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 340,
-    "y": 440,
-    "wires": [
-      [
-        "orders_p"
-      ]
-    ]
-  },
-  {
-    "id": "orders_p",
-    "type": "postgresql",
-    "z": "tab_over",
-    "name": "Run SQL",
-    "query": "",
-    "postgreSQLConfig": "pg_cfg",
-    "split": false,
-    "rowsPerMsg": 1,
-    "outputs": 1,
-    "x": 530,
-    "y": 440,
-    "wires": [
-      [
-        "orders_s"
-      ]
-    ]
-  },
-  {
-    "id": "orders_s",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Shape for the screen",
-    "func": "const rows = msg.payload || [];\nmsg.payload = rows.map((o) => ({\n    Order: o.order_number,\n    Machine: o.asset_code,\n    Part: o.part_number,\n    Progress: `${o.completed_quantity} / ${o.target_quantity}`,\n    Scrap: o.scrap_quantity,\n    Status: o.status,\n}));\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 700,
-    "y": 440,
-    "wires": [
-      [
-        "orders_w"
-      ]
-    ]
-  },
-  {
-    "type": "ui-table",
-    "group": "g_ord",
-    "name": "Orders",
-    "label": "",
-    "order": 1,
-    "width": 6,
-    "height": 0,
-    "maxrows": 0,
-    "passthru": false,
-    "autocols": true,
-    "showSearch": true,
-    "deselect": true,
-    "selectionType": "none",
-    "columns": [],
-    "mobileBreakpoint": "sm",
-    "mobileBreakpointType": "defaults",
-    "action": "replace",
-    "className": "",
-    "id": "orders_w",
-    "z": "tab_over",
-    "x": 910,
-    "y": 440,
-    "wires": [
-      []
-    ]
-  },
-  {
-    "id": "workrequests_i",
-    "type": "inject",
-    "z": "tab_over",
-    "name": "Every 3 s",
-    "props": [
-      {
-        "p": "payload"
-      }
-    ],
-    "repeat": "3",
-    "crontab": "",
-    "once": true,
-    "onceDelay": "1",
-    "topic": "",
-    "payload": "",
-    "payloadType": "date",
-    "x": 150,
-    "y": 510,
-    "wires": [
-      [
-        "workrequests_q"
-      ]
-    ]
-  },
-  {
-    "id": "workrequests_q",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Query: workrequests",
-    "func": "// Latest maintenance work requests\nmsg.query = `\nSELECT r.request_number, a.asset_code, r.reason_code, r.assigned_to, r.status, r.opened_at, r.closed_at\n  FROM mf.maintenance_requests r JOIN mf.assets a ON a.id = r.asset_id\n ORDER BY r.opened_at DESC, r.id DESC LIMIT 8\n`;\nmsg.params = [];\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 340,
-    "y": 510,
-    "wires": [
-      [
-        "workrequests_p"
-      ]
-    ]
-  },
-  {
-    "id": "workrequests_p",
-    "type": "postgresql",
-    "z": "tab_over",
-    "name": "Run SQL",
-    "query": "",
-    "postgreSQLConfig": "pg_cfg",
-    "split": false,
-    "rowsPerMsg": 1,
-    "outputs": 1,
-    "x": 530,
-    "y": 510,
-    "wires": [
-      [
-        "workrequests_s"
-      ]
-    ]
-  },
-  {
-    "id": "workrequests_s",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Shape for the screen",
-    "func": "const t = (v) => (v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');\nmsg.payload = (msg.payload || []).map((r) => ({\n    Request: r.request_number,\n    Machine: r.asset_code,\n    Reason: r.reason_code,\n    'Assigned to': r.assigned_to,\n    Status: r.status,\n    Opened: t(r.opened_at),\n    Closed: t(r.closed_at),\n}));\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 700,
-    "y": 510,
-    "wires": [
-      [
-        "workrequests_w"
-      ]
-    ]
-  },
-  {
-    "type": "ui-table",
-    "group": "g_wr",
-    "name": "Work requests",
-    "label": "",
-    "order": 1,
-    "width": 6,
-    "height": 0,
-    "maxrows": 0,
-    "passthru": false,
-    "autocols": true,
-    "showSearch": true,
-    "deselect": true,
-    "selectionType": "none",
-    "columns": [],
-    "mobileBreakpoint": "sm",
-    "mobileBreakpointType": "defaults",
-    "action": "replace",
-    "className": "",
-    "id": "workrequests_w",
-    "z": "tab_over",
-    "x": 910,
-    "y": 510,
-    "wires": [
-      []
-    ]
-  },
-  {
-    "id": "receipts_i",
-    "type": "inject",
-    "z": "tab_over",
-    "name": "Every 3 s",
-    "props": [
-      {
-        "p": "payload"
-      }
-    ],
-    "repeat": "3",
-    "crontab": "",
-    "once": true,
-    "onceDelay": "1",
-    "topic": "",
-    "payload": "",
-    "payloadType": "date",
-    "x": 150,
-    "y": 580,
-    "wires": [
-      [
-        "receipts_q"
-      ]
-    ]
-  },
-  {
-    "id": "receipts_q",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Query: receipts",
-    "func": "// Production receipts sent back to the ERP\nmsg.query = `\nSELECT order_number, part_number, good_quantity, scrap_quantity, received_at\n  FROM demo_erp.production_receipts ORDER BY received_at DESC LIMIT 6\n`;\nmsg.params = [];\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 340,
-    "y": 580,
-    "wires": [
-      [
-        "receipts_p"
-      ]
-    ]
-  },
-  {
-    "id": "receipts_p",
-    "type": "postgresql",
-    "z": "tab_over",
-    "name": "Run SQL",
-    "query": "",
-    "postgreSQLConfig": "pg_cfg",
-    "split": false,
-    "rowsPerMsg": 1,
-    "outputs": 1,
-    "x": 530,
-    "y": 580,
-    "wires": [
-      [
-        "receipts_s"
-      ]
-    ]
-  },
-  {
-    "id": "receipts_s",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Shape for the screen",
-    "func": "const t = (v) => (v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');\nmsg.payload = (msg.payload || []).map((r) => ({\n    Order: r.order_number, Part: r.part_number, Good: r.good_quantity, Scrap: r.scrap_quantity, Received: t(r.received_at),\n}));\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 700,
-    "y": 580,
-    "wires": [
-      [
-        "receipts_w"
-      ]
-    ]
-  },
-  {
-    "type": "ui-table",
-    "group": "g_rcpt",
-    "name": "Receipts",
-    "label": "",
-    "order": 1,
-    "width": 6,
-    "height": 0,
-    "maxrows": 0,
-    "passthru": false,
-    "autocols": true,
-    "showSearch": true,
-    "deselect": true,
-    "selectionType": "none",
-    "columns": [],
-    "mobileBreakpoint": "sm",
-    "mobileBreakpointType": "defaults",
-    "action": "replace",
-    "className": "",
-    "id": "receipts_w",
-    "z": "tab_over",
-    "x": 910,
-    "y": 580,
-    "wires": [
-      []
-    ]
-  },
-  {
-    "id": "feed_i",
-    "type": "inject",
-    "z": "tab_over",
-    "name": "Every 3 s",
-    "props": [
-      {
-        "p": "payload"
-      }
-    ],
-    "repeat": "3",
-    "crontab": "",
-    "once": true,
-    "onceDelay": "1",
-    "topic": "",
-    "payload": "",
-    "payloadType": "date",
-    "x": 150,
-    "y": 650,
-    "wires": [
-      [
-        "feed_q"
-      ]
-    ]
-  },
-  {
-    "id": "feed_q",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Query: feed",
-    "func": "// Recent notices (alerts, work requests, recoveries)\nmsg.query = `\nSELECT n.created_at, n.severity, n.title, n.message, (n.delivered_at IS NOT NULL) AS sent\n  FROM mf.notifications n ORDER BY n.created_at DESC, n.id DESC LIMIT 10\n`;\nmsg.params = [];\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 340,
-    "y": 650,
-    "wires": [
-      [
-        "feed_p"
-      ]
-    ]
-  },
-  {
-    "id": "feed_p",
-    "type": "postgresql",
-    "z": "tab_over",
-    "name": "Run SQL",
-    "query": "",
-    "postgreSQLConfig": "pg_cfg",
-    "split": false,
-    "rowsPerMsg": 1,
-    "outputs": 1,
-    "x": 530,
-    "y": 650,
-    "wires": [
-      [
-        "feed_s"
-      ]
-    ]
-  },
-  {
-    "id": "feed_s",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Shape for the screen",
-    "func": "const t = (v) => (v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');\nmsg.payload = (msg.payload || []).map((n) => ({\n    Time: t(n.created_at), Level: n.severity, Notice: n.title, Detail: n.message, 'Sent outside': n.sent ? 'yes' : '',\n}));\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 700,
-    "y": 650,
-    "wires": [
-      [
-        "feed_w"
-      ]
-    ]
-  },
-  {
-    "type": "ui-table",
-    "group": "g_feed",
-    "name": "Notices",
-    "label": "",
-    "order": 1,
-    "width": 12,
-    "height": 0,
-    "maxrows": 0,
-    "passthru": false,
-    "autocols": true,
-    "showSearch": true,
-    "deselect": true,
-    "selectionType": "none",
-    "columns": [],
-    "mobileBreakpoint": "sm",
-    "mobileBreakpointType": "defaults",
-    "action": "replace",
-    "className": "",
-    "id": "feed_w",
-    "z": "tab_over",
-    "x": 910,
-    "y": 650,
+    "y": 230,
     "wires": [
       []
     ]
@@ -1271,7 +569,7 @@
     "className": "",
     "name": "Pop-up alerts",
     "x": 960,
-    "y": 740,
+    "y": 320,
     "wires": []
   },
   {
@@ -1292,7 +590,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 740,
+    "y": 320,
     "wires": [
       [
         "toast_q"
@@ -1312,7 +610,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 740,
+    "y": 320,
     "wires": [
       [
         "toast_p"
@@ -1330,7 +628,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 560,
-    "y": 740,
+    "y": 320,
     "wires": [
       [
         "toast_o"
@@ -1350,11 +648,1462 @@
     "finalize": "",
     "libs": [],
     "x": 740,
-    "y": 740,
+    "y": 320,
     "wires": [
       [
         "n_toast"
       ]
+    ]
+  },
+  {
+    "id": "tab_ana",
+    "type": "tab",
+    "label": "Analytics",
+    "disabled": false,
+    "info": "The Analytics page: charts, supporting numbers and the detail tables. Same pattern as the overview: timer -> Query -> Run SQL -> Shape -> widget. Chart rows send a list of {x, y, series} points; tables show any rows."
+  },
+  {
+    "id": "c_ana",
+    "type": "comment",
+    "z": "tab_ana",
+    "name": "Analytics: charts and detail tables",
+    "info": "Charts want points shaped as {x, y, series}. The 'Shape' function in each row does that. Change the SQL, deploy, done.",
+    "x": 200,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "n_head",
+    "type": "ui-group",
+    "name": "Plant",
+    "page": "pg_ana",
+    "width": 12,
+    "height": 1,
+    "order": 0,
+    "showTitle": false,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "n_stats",
+    "type": "ui-group",
+    "name": "Today in numbers",
+    "page": "pg_ana",
+    "width": 12,
+    "height": 1,
+    "order": 1,
+    "showTitle": false,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "n_alert",
+    "type": "ui-group",
+    "name": "Alerts",
+    "page": "pg_ana",
+    "width": 12,
+    "height": 1,
+    "order": 2,
+    "showTitle": false,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "n_out",
+    "type": "ui-group",
+    "name": "Output per hour (last 12 h)",
+    "page": "pg_ana",
+    "width": 6,
+    "height": 1,
+    "order": 3,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "n_rsn",
+    "type": "ui-group",
+    "name": "Downtime by reason today (minutes)",
+    "page": "pg_ana",
+    "width": 6,
+    "height": 1,
+    "order": 4,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "n_yld",
+    "type": "ui-group",
+    "name": "First-pass yield by machine today (%)",
+    "page": "pg_ana",
+    "width": 6,
+    "height": 1,
+    "order": 5,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "n_dt",
+    "type": "ui-group",
+    "name": "Downtime by machine today",
+    "page": "pg_ana",
+    "width": 6,
+    "height": 1,
+    "order": 6,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "n_ord",
+    "type": "ui-group",
+    "name": "Production orders",
+    "page": "pg_ana",
+    "width": 6,
+    "height": 1,
+    "order": 7,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "n_wr",
+    "type": "ui-group",
+    "name": "Maintenance work requests",
+    "page": "pg_ana",
+    "width": 6,
+    "height": 1,
+    "order": 8,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "n_rcpt",
+    "type": "ui-group",
+    "name": "Receipts sent to the ERP",
+    "page": "pg_ana",
+    "width": 6,
+    "height": 1,
+    "order": 9,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "n_feed",
+    "type": "ui-group",
+    "name": "Recent notices",
+    "page": "pg_ana",
+    "width": 6,
+    "height": 1,
+    "order": 10,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "plant_a_i",
+    "type": "inject",
+    "z": "tab_ana",
+    "name": "Every 30 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "30",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 90,
+    "wires": [
+      [
+        "plant_a_q"
+      ]
+    ]
+  },
+  {
+    "id": "plant_a_q",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Query: plant_a",
+    "func": "// Plant name shown at the top of the dashboard (Settings page: plant_name)\nmsg.query = `SELECT value #>> '{}' AS name FROM mf.settings WHERE key = 'plant_name'`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 90,
+    "wires": [
+      [
+        "plant_a_p"
+      ]
+    ]
+  },
+  {
+    "id": "plant_a_p",
+    "type": "postgresql",
+    "z": "tab_ana",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 90,
+    "wires": [
+      [
+        "plant_a_s"
+      ]
+    ]
+  },
+  {
+    "id": "plant_a_s",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Shape for the screen",
+    "func": "msg.payload = (msg.payload && msg.payload[0] && msg.payload[0].name) || 'Plant overview';\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 90,
+    "wires": [
+      [
+        "plant_a_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-template",
+    "group": "n_head",
+    "page": "",
+    "ui": "",
+    "name": "Brand header",
+    "order": 1,
+    "width": 12,
+    "height": 0,
+    "head": "",
+    "format": "<template>\n  <div class=\"mf-head\">\n    <svg class=\"mf-logo\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Manufaction\">\n      <rect width=\"48\" height=\"48\" rx=\"6\" fill=\"#1f2937\" />\n      <path d=\"M10 39V13l14 15 14-15v26M24 8v15\" fill=\"none\" stroke=\"#facc15\" stroke-width=\"3.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" />\n      <circle cx=\"10\" cy=\"39\" r=\"3.4\" fill=\"#ffffff\" /><circle cx=\"38\" cy=\"39\" r=\"3.4\" fill=\"#ffffff\" /><circle cx=\"24\" cy=\"8\" r=\"3.4\" fill=\"#ffffff\" />\n      <circle cx=\"24\" cy=\"28\" r=\"5.4\" fill=\"#facc15\" /><circle cx=\"24\" cy=\"28\" r=\"2\" fill=\"#1f2937\" />\n    </svg>\n    <div class=\"mf-plant\">{{ plant }}</div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    plant: function () {\n      var p = this.msg && this.msg.payload\n      return typeof p === 'string' && p ? p : 'Plant overview'\n    }\n  }\n}\n</script>\n\n<style>\n.mf-head { display: flex; align-items: center; gap: 14px; }\n.mf-logo { width: 40px; height: 40px; flex: none; }\n.mf-plant { font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif; font-size: 26px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }\n</style>",
+    "storeOutMessages": true,
+    "passthru": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "className": "",
+    "id": "plant_a_w",
+    "z": "tab_ana",
+    "x": 910,
+    "y": 90,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "stats_i",
+    "type": "inject",
+    "z": "tab_ana",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 160,
+    "wires": [
+      [
+        "stats_q"
+      ]
+    ]
+  },
+  {
+    "id": "stats_q",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Query: stats",
+    "func": "// Extra numbers for the Analytics tiles\nmsg.query = `\nWITH plant AS (\n  SELECT timezone, (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1)\nSELECT (SELECT count(*) FROM mf.quality_events e, plant p WHERE e.event_time >= p.day_start AND e.result = 'good')::int AS good,\n       (SELECT count(*) FROM mf.quality_events e, plant p WHERE e.event_time >= p.day_start AND e.result <> 'good')::int AS scrap,\n       (SELECT count(*) FROM mf.production_orders o, plant p WHERE o.completed_at >= p.day_start)::int AS orders_done,\n       (SELECT ROUND((AVG(d.duration_seconds) / 60.0)::numeric, 1)::float FROM mf.downtime_events d, plant p\n         WHERE d.ended_at >= p.day_start AND d.duration_seconds IS NOT NULL) AS mttr_min,\n       (SELECT count(*) FROM mf.downtime_events d, plant p WHERE COALESCE(d.ended_at, now()) >= p.day_start)::int AS stops,\n       COALESCE((SELECT ROUND(MAX(EXTRACT(EPOCH FROM (COALESCE(d.ended_at, now()) - GREATEST(d.started_at, p.day_start))) / 60.0)::numeric, 1)::float\n                   FROM mf.downtime_events d, plant p WHERE COALESCE(d.ended_at, now()) >= p.day_start), 0) AS longest_min,\n       (SELECT a.asset_code FROM mf.downtime_events d JOIN mf.assets a ON a.id = d.asset_id, plant p\n         WHERE COALESCE(d.ended_at, now()) >= p.day_start\n         ORDER BY (COALESCE(d.ended_at, now()) - GREATEST(d.started_at, p.day_start)) DESC LIMIT 1) AS longest_machine\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 160,
+    "wires": [
+      [
+        "stats_p"
+      ]
+    ]
+  },
+  {
+    "id": "stats_p",
+    "type": "postgresql",
+    "z": "tab_ana",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 160,
+    "wires": [
+      [
+        "stats_s"
+      ]
+    ]
+  },
+  {
+    "id": "stats_s",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Shape for the screen",
+    "func": "const r = (msg.payload && msg.payload[0]) || {};\nconst t = (r.good || 0) + (r.scrap || 0);\nr.scrap_pct = t ? Math.round(1000 * (r.scrap || 0) / t) / 10 : 0;\nmsg.payload = r;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 160,
+    "wires": [
+      [
+        "stats_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-template",
+    "group": "n_stats",
+    "page": "",
+    "ui": "",
+    "name": "Number tiles",
+    "order": 1,
+    "width": 12,
+    "height": 0,
+    "head": "",
+    "format": "<template>\n  <div class=\"mf-stats\">\n    <div class=\"mf-stat\">\n      <div class=\"mf-stat-label\">Good parts today</div>\n      <div class=\"mf-stat-value\">{{ s.good }}</div>\n      <div class=\"mf-stat-sub\">{{ s.orders_done }} orders completed</div>\n    </div>\n    <div class=\"mf-stat\" :class=\"{ 'mf-warn': s.scrap_pct > 5 }\">\n      <div class=\"mf-stat-label\">Scrap rate</div>\n      <div class=\"mf-stat-value\">{{ s.scrap_pct }} %</div>\n      <div class=\"mf-stat-sub\">{{ s.scrap }} scrapped parts</div>\n    </div>\n    <div class=\"mf-stat\">\n      <div class=\"mf-stat-label\">Avg repair time</div>\n      <div class=\"mf-stat-value\">{{ s.mttr_min === null ? '\u2013' : s.mttr_min + ' min' }}</div>\n      <div class=\"mf-stat-sub\">{{ s.stops }} stops today</div>\n    </div>\n    <div class=\"mf-stat\" :class=\"{ 'mf-bad': s.longest_min > 15 }\">\n      <div class=\"mf-stat-label\">Longest stop</div>\n      <div class=\"mf-stat-value\">{{ s.longest_min }} min</div>\n      <div class=\"mf-stat-sub\">{{ s.longest_machine || 'none today' }}</div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    s: function () {\n      var p = this.msg && this.msg.payload\n      return (p && typeof p === 'object' && !Array.isArray(p)) ? p : { good: 0, scrap: 0, scrap_pct: 0, orders_done: 0, mttr_min: null, stops: 0, longest_min: 0, longest_machine: null }\n    }\n  }\n}\n</script>\n\n<style>\n.mf-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }\n.mf-stat { border-radius: 8px; padding: 12px 16px; background: rgba(var(--v-theme-on-group-background), 0.06); border-left: 4px solid #facc15; }\n.mf-stat-label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }\n.mf-stat-value { font-size: 30px; font-weight: 700; line-height: 1.15; margin: 4px 0; }\n.mf-stat-sub { font-size: 12px; opacity: .65; }\n.mf-stat.mf-warn { border-left-color: #f59e0b; }\n.mf-stat.mf-bad { border-left-color: #ef4444; }\n</style>",
+    "storeOutMessages": true,
+    "passthru": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "className": "",
+    "id": "stats_w",
+    "z": "tab_ana",
+    "x": 910,
+    "y": 160,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "alerts_i",
+    "type": "inject",
+    "z": "tab_ana",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 230,
+    "wires": [
+      [
+        "alerts_q"
+      ]
+    ]
+  },
+  {
+    "id": "alerts_q",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Query: alerts",
+    "func": "// Machines that are down right now (the red banner)\nmsg.query = `\nSELECT a.asset_code, a.name, d.status,\n       COALESCE(d.reason_description, d.reason_code, 'No reason reported') AS reason,\n       d.started_at, r.request_number AS work_request, r.assigned_to\n  FROM mf.downtime_events d\n  JOIN mf.assets a ON a.id = d.asset_id\n  LEFT JOIN mf.maintenance_requests r ON r.downtime_event_id = d.id\n WHERE d.ended_at IS NULL\n   AND d.status IN (SELECT jsonb_array_elements_text(value) FROM mf.settings WHERE key = 'alert_statuses')\n ORDER BY d.started_at\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 230,
+    "wires": [
+      [
+        "alerts_p"
+      ]
+    ]
+  },
+  {
+    "id": "alerts_p",
+    "type": "postgresql",
+    "z": "tab_ana",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 230,
+    "wires": [
+      [
+        "alerts_s"
+      ]
+    ]
+  },
+  {
+    "id": "alerts_s",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Shape for the screen",
+    "func": "msg.payload = msg.payload || [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 230,
+    "wires": [
+      [
+        "alerts_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-template",
+    "group": "n_alert",
+    "page": "",
+    "ui": "",
+    "name": "Alert banner",
+    "order": 1,
+    "width": 12,
+    "height": 0,
+    "head": "",
+    "format": "<template>\n  <div>\n    <div v-if=\"alerts.length === 0\" class=\"mf-clear\">All clear: no machine is down.</div>\n    <div v-for=\"a in alerts\" :key=\"a.asset_code + a.started_at\" class=\"mf-alert\">\n      <div class=\"mf-alert-main\">\n        <b>{{ a.asset_code }}</b> {{ a.status === 'faulted' ? 'FAULT' : 'STOPPED' }}: {{ a.reason }}\n      </div>\n      <div class=\"mf-alert-sub\">\n        since {{ since(a.started_at) }}\n        <span v-if=\"a.work_request\"> \u00b7 work request <b>{{ a.work_request }}</b> sent to {{ a.assigned_to }}</span>\n      </div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    alerts: function () { return (this.msg && Array.isArray(this.msg.payload)) ? this.msg.payload : [] }\n  },\n  methods: {\n    since: function (iso) {\n      var s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000))\n      if (s < 60) return s + ' s ago'\n      if (s < 3600) return Math.floor(s / 60) + ' min ago'\n      return Math.floor(s / 3600) + ' h ' + Math.floor((s % 3600) / 60) + ' min ago'\n    }\n  }\n}\n</script>\n\n<style>\n.mf-clear { padding: 10px 14px; border-radius: 8px; background: rgba(34, 197, 94, .14); border-left: 4px solid #22c55e; }\n.mf-alert { padding: 10px 14px; margin-bottom: 8px; border-radius: 8px; background: rgba(239, 68, 68, .16); border-left: 4px solid #ef4444; }\n.mf-alert-main { font-size: 16px; }\n.mf-alert-sub { font-size: 12px; opacity: .8; margin-top: 2px; }\n</style>",
+    "storeOutMessages": true,
+    "passthru": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "className": "",
+    "id": "alerts_w",
+    "z": "tab_ana",
+    "x": 910,
+    "y": 230,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "chart_output_i",
+    "type": "inject",
+    "z": "tab_ana",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 300,
+    "wires": [
+      [
+        "chart_output_q"
+      ]
+    ]
+  },
+  {
+    "id": "chart_output_q",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Query: chart_output",
+    "func": "// Good and scrap parts per hour, last 12 hours (plant time)\nmsg.query = `\nWITH plant AS (\n  SELECT timezone, (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1)\n, hrs AS (SELECT generate_series(date_trunc('hour', now() AT TIME ZONE timezone) - interval '11 hours',\n                                 date_trunc('hour', now() AT TIME ZONE timezone), interval '1 hour') AS h, timezone FROM plant)\nSELECT to_char(hrs.h, 'HH24:00') AS hour,\n       COALESCE(SUM((e.result = 'good')::int), 0)::int AS good,\n       COALESCE(SUM((e.result <> 'good')::int), 0)::int AS scrap\n  FROM hrs LEFT JOIN mf.quality_events e ON date_trunc('hour', e.event_time AT TIME ZONE hrs.timezone) = hrs.h\n GROUP BY hrs.h ORDER BY hrs.h\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 300,
+    "wires": [
+      [
+        "chart_output_p"
+      ]
+    ]
+  },
+  {
+    "id": "chart_output_p",
+    "type": "postgresql",
+    "z": "tab_ana",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 300,
+    "wires": [
+      [
+        "chart_output_s"
+      ]
+    ]
+  },
+  {
+    "id": "chart_output_s",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Shape for the screen",
+    "func": "// one chart point per hour per series; the chart needs {x, y, series}\nconst out = [];\n(msg.payload || []).forEach((r) => {\n    out.push({ x: r.hour, y: r.good, series: 'Good' });\n    out.push({ x: r.hour, y: r.scrap, series: 'Scrap' });\n});\nmsg.payload = out;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 300,
+    "wires": [
+      [
+        "chart_output_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-chart",
+    "group": "n_out",
+    "name": "Output per hour",
+    "label": "",
+    "order": 1,
+    "chartType": "bar",
+    "category": "series",
+    "categoryType": "property",
+    "xAxisLabel": "",
+    "xAxisProperty": "x",
+    "xAxisPropertyType": "property",
+    "xAxisType": "category",
+    "xAxisFormat": "",
+    "xAxisFormatType": "auto",
+    "xmin": "",
+    "xmax": "",
+    "yAxisLabel": "",
+    "yAxisProperty": "y",
+    "yAxisPropertyType": "property",
+    "ymin": "0",
+    "ymax": "",
+    "bins": 10,
+    "action": "replace",
+    "stackSeries": true,
+    "pointShape": "circle",
+    "pointRadius": 4,
+    "showLegend": true,
+    "removeOlder": 0,
+    "removeOlderUnit": "3600",
+    "removeOlderPoints": "",
+    "colors": [
+      "#facc15",
+      "#dc2626"
+    ],
+    "textColor": [
+      "#666666"
+    ],
+    "textColorDefault": true,
+    "gridColor": [
+      "#e5e5e5"
+    ],
+    "gridColorDefault": true,
+    "width": 6,
+    "height": 5,
+    "className": "",
+    "interpolation": "linear",
+    "id": "chart_output_w",
+    "z": "tab_ana",
+    "x": 910,
+    "y": 300,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "chart_reasons_i",
+    "type": "inject",
+    "z": "tab_ana",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 370,
+    "wires": [
+      [
+        "chart_reasons_q"
+      ]
+    ]
+  },
+  {
+    "id": "chart_reasons_q",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Query: chart_reasons",
+    "func": "// Where today's downtime went, by reason code\nmsg.query = `\nWITH plant AS (\n  SELECT timezone, (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1)\nSELECT COALESCE(d.reason_code, 'NO REASON') AS reason,\n       ROUND((SUM(EXTRACT(EPOCH FROM (COALESCE(d.ended_at, now()) - GREATEST(d.started_at, p.day_start))) / 60.0))::numeric, 1)::float AS minutes\n  FROM mf.downtime_events d, plant p\n WHERE COALESCE(d.ended_at, now()) >= p.day_start\n GROUP BY 1 ORDER BY 2 DESC LIMIT 8\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 370,
+    "wires": [
+      [
+        "chart_reasons_p"
+      ]
+    ]
+  },
+  {
+    "id": "chart_reasons_p",
+    "type": "postgresql",
+    "z": "tab_ana",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 370,
+    "wires": [
+      [
+        "chart_reasons_s"
+      ]
+    ]
+  },
+  {
+    "id": "chart_reasons_s",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Shape for the screen",
+    "func": "msg.payload = (msg.payload || []).map((r) => ({ x: r.reason, y: r.minutes, series: 'Minutes down' }));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 370,
+    "wires": [
+      [
+        "chart_reasons_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-chart",
+    "group": "n_rsn",
+    "name": "Downtime by reason",
+    "label": "",
+    "order": 1,
+    "chartType": "bar",
+    "category": "series",
+    "categoryType": "property",
+    "xAxisLabel": "",
+    "xAxisProperty": "x",
+    "xAxisPropertyType": "property",
+    "xAxisType": "category",
+    "xAxisFormat": "",
+    "xAxisFormatType": "auto",
+    "xmin": "",
+    "xmax": "",
+    "yAxisLabel": "",
+    "yAxisProperty": "y",
+    "yAxisPropertyType": "property",
+    "ymin": "0",
+    "ymax": "",
+    "bins": 10,
+    "action": "replace",
+    "stackSeries": false,
+    "pointShape": "circle",
+    "pointRadius": 4,
+    "showLegend": true,
+    "removeOlder": 0,
+    "removeOlderUnit": "3600",
+    "removeOlderPoints": "",
+    "colors": [
+      "#dc2626"
+    ],
+    "textColor": [
+      "#666666"
+    ],
+    "textColorDefault": true,
+    "gridColor": [
+      "#e5e5e5"
+    ],
+    "gridColorDefault": true,
+    "width": 6,
+    "height": 5,
+    "className": "",
+    "interpolation": "linear",
+    "id": "chart_reasons_w",
+    "z": "tab_ana",
+    "x": 910,
+    "y": 370,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "chart_yield_i",
+    "type": "inject",
+    "z": "tab_ana",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 440,
+    "wires": [
+      [
+        "chart_yield_q"
+      ]
+    ]
+  },
+  {
+    "id": "chart_yield_q",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Query: chart_yield",
+    "func": "// First-pass yield by machine today (machines with no output yet are left out)\nmsg.query = `\nWITH plant AS (\n  SELECT timezone, (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1)\nSELECT a.asset_code,\n       ROUND((100.0 * SUM((e.result = 'good')::int) / NULLIF(COUNT(e.id), 0))::numeric, 1)::float AS yield\n  FROM mf.assets a\n  JOIN mf.quality_events e ON e.asset_id = a.id\n  JOIN plant p ON e.event_time >= p.day_start\n GROUP BY a.asset_code ORDER BY a.asset_code\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 440,
+    "wires": [
+      [
+        "chart_yield_p"
+      ]
+    ]
+  },
+  {
+    "id": "chart_yield_p",
+    "type": "postgresql",
+    "z": "tab_ana",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 440,
+    "wires": [
+      [
+        "chart_yield_s"
+      ]
+    ]
+  },
+  {
+    "id": "chart_yield_s",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Shape for the screen",
+    "func": "msg.payload = (msg.payload || []).map((r) => ({ x: r.asset_code, y: r.yield, series: 'First-pass yield %' }));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 440,
+    "wires": [
+      [
+        "chart_yield_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-chart",
+    "group": "n_yld",
+    "name": "Yield by machine",
+    "label": "",
+    "order": 1,
+    "chartType": "bar",
+    "category": "series",
+    "categoryType": "property",
+    "xAxisLabel": "",
+    "xAxisProperty": "x",
+    "xAxisPropertyType": "property",
+    "xAxisType": "category",
+    "xAxisFormat": "",
+    "xAxisFormatType": "auto",
+    "xmin": "",
+    "xmax": "",
+    "yAxisLabel": "",
+    "yAxisProperty": "y",
+    "yAxisPropertyType": "property",
+    "ymin": "0",
+    "ymax": "100",
+    "bins": 10,
+    "action": "replace",
+    "stackSeries": false,
+    "pointShape": "circle",
+    "pointRadius": 4,
+    "showLegend": true,
+    "removeOlder": 0,
+    "removeOlderUnit": "3600",
+    "removeOlderPoints": "",
+    "colors": [
+      "#475569"
+    ],
+    "textColor": [
+      "#666666"
+    ],
+    "textColorDefault": true,
+    "gridColor": [
+      "#e5e5e5"
+    ],
+    "gridColorDefault": true,
+    "width": 6,
+    "height": 5,
+    "className": "",
+    "interpolation": "linear",
+    "id": "chart_yield_w",
+    "z": "tab_ana",
+    "x": 910,
+    "y": 440,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "downtime_i",
+    "type": "inject",
+    "z": "tab_ana",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 510,
+    "wires": [
+      [
+        "downtime_q"
+      ]
+    ]
+  },
+  {
+    "id": "downtime_q",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Query: downtime",
+    "func": "// Minutes of downtime today for each machine\nmsg.query = `\nWITH plant AS (\n  SELECT (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1)\nSELECT a.asset_code,\n       COALESCE(ROUND((SUM(EXTRACT(EPOCH FROM (COALESCE(d.ended_at, now()) - GREATEST(d.started_at, p.day_start)))) / 60.0)::numeric, 1), 0)::float AS minutes,\n       COUNT(d.id)::int AS events,\n       MODE() WITHIN GROUP (ORDER BY d.reason_code) AS top_reason\n  FROM mf.assets a\n  CROSS JOIN plant p\n  LEFT JOIN mf.downtime_events d ON d.asset_id = a.id AND COALESCE(d.ended_at, now()) >= p.day_start\n GROUP BY a.asset_code\n ORDER BY a.asset_code\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 510,
+    "wires": [
+      [
+        "downtime_p"
+      ]
+    ]
+  },
+  {
+    "id": "downtime_p",
+    "type": "postgresql",
+    "z": "tab_ana",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 510,
+    "wires": [
+      [
+        "downtime_s"
+      ]
+    ]
+  },
+  {
+    "id": "downtime_s",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Shape for the screen",
+    "func": "msg.payload = msg.payload || [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 510,
+    "wires": [
+      [
+        "downtime_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-template",
+    "group": "n_dt",
+    "page": "",
+    "ui": "",
+    "name": "Downtime bars",
+    "order": 1,
+    "width": 6,
+    "height": 0,
+    "head": "",
+    "format": "<template>\n  <div>\n    <div v-for=\"r in rows\" :key=\"r.asset_code\" class=\"mf-dt-row\">\n      <div class=\"mf-dt-name\">{{ r.asset_code }}</div>\n      <div class=\"mf-dt-track\"><div class=\"mf-dt-fill\" :style=\"{ width: width(r) + '%' }\"></div></div>\n      <div class=\"mf-dt-val\">{{ r.minutes }} min</div>\n      <div class=\"mf-dt-why\">{{ r.events }} event{{ r.events === 1 ? '' : 's' }}<span v-if=\"r.top_reason\"> \u00b7 {{ r.top_reason }}</span></div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    rows: function () { return (this.msg && Array.isArray(this.msg.payload)) ? this.msg.payload : [] },\n    max: function () {\n      var m = 0\n      this.rows.forEach(function (r) { if (r.minutes > m) m = r.minutes })\n      return m || 1\n    }\n  },\n  methods: {\n    width: function (r) { return Math.round(100 * r.minutes / this.max) }\n  }\n}\n</script>\n\n<style>\n.mf-dt-row { display: grid; grid-template-columns: 110px 1fr 70px; gap: 8px; align-items: center; margin-bottom: 8px; }\n.mf-dt-name { font-size: 13px; font-weight: 600; }\n.mf-dt-track { height: 10px; border-radius: 5px; background: rgba(var(--v-theme-on-group-background), 0.12); overflow: hidden; }\n.mf-dt-fill { height: 100%; background: #ef4444; }\n.mf-dt-val { text-align: right; font-size: 13px; }\n.mf-dt-why { grid-column: 2 / 4; font-size: 11px; opacity: .6; margin-top: -4px; }\n</style>",
+    "storeOutMessages": true,
+    "passthru": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "className": "",
+    "id": "downtime_w",
+    "z": "tab_ana",
+    "x": 910,
+    "y": 510,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "orders_i",
+    "type": "inject",
+    "z": "tab_ana",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 580,
+    "wires": [
+      [
+        "orders_q"
+      ]
+    ]
+  },
+  {
+    "id": "orders_q",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Query: orders",
+    "func": "// Latest production orders\nmsg.query = `\nSELECT o.order_number, a.asset_code, o.part_number, o.completed_quantity, o.scrap_quantity,\n       o.target_quantity, o.status, o.released_at\n  FROM mf.production_orders o LEFT JOIN mf.assets a ON a.id = o.asset_id\n ORDER BY (o.status IN ('released','running')) DESC, o.released_at DESC\n LIMIT 10\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 580,
+    "wires": [
+      [
+        "orders_p"
+      ]
+    ]
+  },
+  {
+    "id": "orders_p",
+    "type": "postgresql",
+    "z": "tab_ana",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 580,
+    "wires": [
+      [
+        "orders_s"
+      ]
+    ]
+  },
+  {
+    "id": "orders_s",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Shape for the screen",
+    "func": "const rows = msg.payload || [];\nmsg.payload = rows.map((o) => ({\n    Order: o.order_number,\n    Machine: o.asset_code,\n    Part: o.part_number,\n    Progress: `${o.completed_quantity} / ${o.target_quantity}`,\n    Scrap: o.scrap_quantity,\n    Status: o.status,\n}));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 580,
+    "wires": [
+      [
+        "orders_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-table",
+    "group": "n_ord",
+    "name": "Orders",
+    "label": "",
+    "order": 1,
+    "width": 6,
+    "height": 0,
+    "maxrows": 0,
+    "passthru": false,
+    "autocols": true,
+    "showSearch": true,
+    "deselect": true,
+    "selectionType": "none",
+    "columns": [],
+    "mobileBreakpoint": "sm",
+    "mobileBreakpointType": "defaults",
+    "action": "replace",
+    "className": "",
+    "id": "orders_w",
+    "z": "tab_ana",
+    "x": 910,
+    "y": 580,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "workrequests_i",
+    "type": "inject",
+    "z": "tab_ana",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 650,
+    "wires": [
+      [
+        "workrequests_q"
+      ]
+    ]
+  },
+  {
+    "id": "workrequests_q",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Query: workrequests",
+    "func": "// Latest maintenance work requests\nmsg.query = `\nSELECT r.request_number, a.asset_code, r.reason_code, r.assigned_to, r.status, r.opened_at, r.closed_at\n  FROM mf.maintenance_requests r JOIN mf.assets a ON a.id = r.asset_id\n ORDER BY r.opened_at DESC, r.id DESC LIMIT 8\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 650,
+    "wires": [
+      [
+        "workrequests_p"
+      ]
+    ]
+  },
+  {
+    "id": "workrequests_p",
+    "type": "postgresql",
+    "z": "tab_ana",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 650,
+    "wires": [
+      [
+        "workrequests_s"
+      ]
+    ]
+  },
+  {
+    "id": "workrequests_s",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Shape for the screen",
+    "func": "const t = (v) => (v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');\nmsg.payload = (msg.payload || []).map((r) => ({\n    Request: r.request_number,\n    Machine: r.asset_code,\n    Reason: r.reason_code,\n    'Assigned to': r.assigned_to,\n    Status: r.status,\n    Opened: t(r.opened_at),\n    Closed: t(r.closed_at),\n}));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 650,
+    "wires": [
+      [
+        "workrequests_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-table",
+    "group": "n_wr",
+    "name": "Work requests",
+    "label": "",
+    "order": 1,
+    "width": 6,
+    "height": 0,
+    "maxrows": 0,
+    "passthru": false,
+    "autocols": true,
+    "showSearch": true,
+    "deselect": true,
+    "selectionType": "none",
+    "columns": [],
+    "mobileBreakpoint": "sm",
+    "mobileBreakpointType": "defaults",
+    "action": "replace",
+    "className": "",
+    "id": "workrequests_w",
+    "z": "tab_ana",
+    "x": 910,
+    "y": 650,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "receipts_i",
+    "type": "inject",
+    "z": "tab_ana",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 720,
+    "wires": [
+      [
+        "receipts_q"
+      ]
+    ]
+  },
+  {
+    "id": "receipts_q",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Query: receipts",
+    "func": "// Production receipts sent back to the ERP\nmsg.query = `\nSELECT order_number, part_number, good_quantity, scrap_quantity, received_at\n  FROM demo_erp.production_receipts ORDER BY received_at DESC LIMIT 6\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 720,
+    "wires": [
+      [
+        "receipts_p"
+      ]
+    ]
+  },
+  {
+    "id": "receipts_p",
+    "type": "postgresql",
+    "z": "tab_ana",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 720,
+    "wires": [
+      [
+        "receipts_s"
+      ]
+    ]
+  },
+  {
+    "id": "receipts_s",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Shape for the screen",
+    "func": "const t = (v) => (v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');\nmsg.payload = (msg.payload || []).map((r) => ({\n    Order: r.order_number, Part: r.part_number, Good: r.good_quantity, Scrap: r.scrap_quantity, Received: t(r.received_at),\n}));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 720,
+    "wires": [
+      [
+        "receipts_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-table",
+    "group": "n_rcpt",
+    "name": "Receipts",
+    "label": "",
+    "order": 1,
+    "width": 6,
+    "height": 0,
+    "maxrows": 0,
+    "passthru": false,
+    "autocols": true,
+    "showSearch": true,
+    "deselect": true,
+    "selectionType": "none",
+    "columns": [],
+    "mobileBreakpoint": "sm",
+    "mobileBreakpointType": "defaults",
+    "action": "replace",
+    "className": "",
+    "id": "receipts_w",
+    "z": "tab_ana",
+    "x": 910,
+    "y": 720,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "feed_i",
+    "type": "inject",
+    "z": "tab_ana",
+    "name": "Every 3 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "3",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 790,
+    "wires": [
+      [
+        "feed_q"
+      ]
+    ]
+  },
+  {
+    "id": "feed_q",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Query: feed",
+    "func": "// Recent notices (alerts, work requests, recoveries)\nmsg.query = `\nSELECT n.created_at, n.severity, n.title, n.message, (n.delivered_at IS NOT NULL) AS sent\n  FROM mf.notifications n ORDER BY n.created_at DESC, n.id DESC LIMIT 10\n`;\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 790,
+    "wires": [
+      [
+        "feed_p"
+      ]
+    ]
+  },
+  {
+    "id": "feed_p",
+    "type": "postgresql",
+    "z": "tab_ana",
+    "name": "Run SQL",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 530,
+    "y": 790,
+    "wires": [
+      [
+        "feed_s"
+      ]
+    ]
+  },
+  {
+    "id": "feed_s",
+    "type": "function",
+    "z": "tab_ana",
+    "name": "Shape for the screen",
+    "func": "const t = (v) => (v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');\nmsg.payload = (msg.payload || []).map((n) => ({\n    Time: t(n.created_at), Level: n.severity, Notice: n.title, Detail: n.message, 'Sent outside': n.sent ? 'yes' : '',\n}));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 790,
+    "wires": [
+      [
+        "feed_w"
+      ]
+    ]
+  },
+  {
+    "type": "ui-table",
+    "group": "n_feed",
+    "name": "Notices",
+    "label": "",
+    "order": 1,
+    "width": 6,
+    "height": 0,
+    "maxrows": 0,
+    "passthru": false,
+    "autocols": true,
+    "showSearch": true,
+    "deselect": true,
+    "selectionType": "none",
+    "columns": [],
+    "mobileBreakpoint": "sm",
+    "mobileBreakpointType": "defaults",
+    "action": "replace",
+    "className": "",
+    "id": "feed_w",
+    "z": "tab_ana",
+    "x": 910,
+    "y": 790,
+    "wires": [
+      []
     ]
   },
   {

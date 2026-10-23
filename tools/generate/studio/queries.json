@@ -46,5 +46,25 @@
  "plant": {
   "query": "// Plant name shown at the top of the dashboard (Settings page: plant_name)\nmsg.query = `SELECT value #>> '{}' AS name FROM mf.settings WHERE key = 'plant_name'`;\nmsg.params = [];\nreturn msg;",
   "shape": "msg.payload = (msg.payload && msg.payload[0] && msg.payload[0].name) || 'Plant overview';\nreturn msg;"
+ },
+ "plant_a": {
+  "query": "// Plant name shown at the top of the dashboard (Settings page: plant_name)\nmsg.query = `SELECT value #>> '{}' AS name FROM mf.settings WHERE key = 'plant_name'`;\nmsg.params = [];\nreturn msg;",
+  "shape": "msg.payload = (msg.payload && msg.payload[0] && msg.payload[0].name) || 'Plant overview';\nreturn msg;"
+ },
+ "stats": {
+  "query": "// Extra numbers for the Analytics tiles\nmsg.query = `\nWITH plant AS (\n  SELECT timezone, (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1)\nSELECT (SELECT count(*) FROM mf.quality_events e, plant p WHERE e.event_time >= p.day_start AND e.result = 'good')::int AS good,\n       (SELECT count(*) FROM mf.quality_events e, plant p WHERE e.event_time >= p.day_start AND e.result <> 'good')::int AS scrap,\n       (SELECT count(*) FROM mf.production_orders o, plant p WHERE o.completed_at >= p.day_start)::int AS orders_done,\n       (SELECT ROUND((AVG(d.duration_seconds) / 60.0)::numeric, 1)::float FROM mf.downtime_events d, plant p\n         WHERE d.ended_at >= p.day_start AND d.duration_seconds IS NOT NULL) AS mttr_min,\n       (SELECT count(*) FROM mf.downtime_events d, plant p WHERE COALESCE(d.ended_at, now()) >= p.day_start)::int AS stops,\n       COALESCE((SELECT ROUND(MAX(EXTRACT(EPOCH FROM (COALESCE(d.ended_at, now()) - GREATEST(d.started_at, p.day_start))) / 60.0)::numeric, 1)::float\n                   FROM mf.downtime_events d, plant p WHERE COALESCE(d.ended_at, now()) >= p.day_start), 0) AS longest_min,\n       (SELECT a.asset_code FROM mf.downtime_events d JOIN mf.assets a ON a.id = d.asset_id, plant p\n         WHERE COALESCE(d.ended_at, now()) >= p.day_start\n         ORDER BY (COALESCE(d.ended_at, now()) - GREATEST(d.started_at, p.day_start)) DESC LIMIT 1) AS longest_machine\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "const r = (msg.payload && msg.payload[0]) || {};\nconst t = (r.good || 0) + (r.scrap || 0);\nr.scrap_pct = t ? Math.round(1000 * (r.scrap || 0) / t) / 10 : 0;\nmsg.payload = r;\nreturn msg;"
+ },
+ "chart_output": {
+  "query": "// Good and scrap parts per hour, last 12 hours (plant time)\nmsg.query = `\nWITH plant AS (\n  SELECT timezone, (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1)\n, hrs AS (SELECT generate_series(date_trunc('hour', now() AT TIME ZONE timezone) - interval '11 hours',\n                                 date_trunc('hour', now() AT TIME ZONE timezone), interval '1 hour') AS h, timezone FROM plant)\nSELECT to_char(hrs.h, 'HH24:00') AS hour,\n       COALESCE(SUM((e.result = 'good')::int), 0)::int AS good,\n       COALESCE(SUM((e.result <> 'good')::int), 0)::int AS scrap\n  FROM hrs LEFT JOIN mf.quality_events e ON date_trunc('hour', e.event_time AT TIME ZONE hrs.timezone) = hrs.h\n GROUP BY hrs.h ORDER BY hrs.h\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "// one chart point per hour per series; the chart needs {x, y, series}\nconst out = [];\n(msg.payload || []).forEach((r) => {\n    out.push({ x: r.hour, y: r.good, series: 'Good' });\n    out.push({ x: r.hour, y: r.scrap, series: 'Scrap' });\n});\nmsg.payload = out;\nreturn msg;"
+ },
+ "chart_reasons": {
+  "query": "// Where today's downtime went, by reason code\nmsg.query = `\nWITH plant AS (\n  SELECT timezone, (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1)\nSELECT COALESCE(d.reason_code, 'NO REASON') AS reason,\n       ROUND((SUM(EXTRACT(EPOCH FROM (COALESCE(d.ended_at, now()) - GREATEST(d.started_at, p.day_start))) / 60.0))::numeric, 1)::float AS minutes\n  FROM mf.downtime_events d, plant p\n WHERE COALESCE(d.ended_at, now()) >= p.day_start\n GROUP BY 1 ORDER BY 2 DESC LIMIT 8\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "msg.payload = (msg.payload || []).map((r) => ({ x: r.reason, y: r.minutes, series: 'Minutes down' }));\nreturn msg;"
+ },
+ "chart_yield": {
+  "query": "// First-pass yield by machine today (machines with no output yet are left out)\nmsg.query = `\nWITH plant AS (\n  SELECT timezone, (date_trunc('day', now() AT TIME ZONE timezone) AT TIME ZONE timezone) AS day_start\n    FROM mf.sites ORDER BY created_at LIMIT 1)\nSELECT a.asset_code,\n       ROUND((100.0 * SUM((e.result = 'good')::int) / NULLIF(COUNT(e.id), 0))::numeric, 1)::float AS yield\n  FROM mf.assets a\n  JOIN mf.quality_events e ON e.asset_id = a.id\n  JOIN plant p ON e.event_time >= p.day_start\n GROUP BY a.asset_code ORDER BY a.asset_code\n`;\nmsg.params = [];\nreturn msg;",
+  "shape": "msg.payload = (msg.payload || []).map((r) => ({ x: r.asset_code, y: r.yield, series: 'First-pass yield %' }));\nreturn msg;"
  }
 }

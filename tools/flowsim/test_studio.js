@@ -25,6 +25,9 @@ const ok = (c, name, extra) => { if (c) { pass++; console.log('  PASS ', name); 
                    SELECT id,'faulted','TOOL_BREAK','Tool breakage detected', now() - interval '5 minutes' FROM mf.assets WHERE asset_code='CNC-001'`).catch((e) => console.log('dt seed:', e.message));
     await a.query(`INSERT INTO mf.notifications (kind, severity, title, message, seeded) VALUES ('downtime_alert','critical','CNC 001 is down','Tool breakage', false)`).catch((e) => console.log('ntf seed:', e.message));
 
+    await a.query(`INSERT INTO mf.quality_events (asset_id, part_number, result, event_time)
+                   SELECT id, 'BRKT-100', CASE WHEN g <= 8 THEN 'good' ELSE 'scrap' END, now()
+                     FROM mf.assets, generate_series(1, 10) g WHERE asset_code = 'PRESS-001'`).catch((e) => console.log('quality seed:', e.message));
     const db = makeDb(studio);        // what the Studio container really connects as
     const flows = JSON.parse(fs.readFileSync(path.join(root, 'studio', 'data', 'flows.json'), 'utf8'));
     const e = new Engine(flows, { db, env: {}, globals: {} });
@@ -48,6 +51,23 @@ const ok = (c, name, extra) => { if (c) { pass++; console.log('  PASS ', name); 
     ok(out('feed_w').payload[0].Notice === 'CNC 001 is down', 'notices table', out('feed_w').payload);
     ok(out('settings_w').payload.some((s) => s.Setting === 'yield_target_pct'), 'settings table');
     ok(out('reasons_w').payload.length === 9, 'fault catalogue has 9 codes');
+
+    console.log('analytics page');
+    for (const k of ['plant_a', 'stats', 'chart_output', 'chart_reasons', 'chart_yield']) {
+        await e.fire(k + '_i');
+        ok(!!out(k + '_w'), `analytics panel "${k}" produced output`, e.warnings.slice(-1));
+    }
+    const st = out('stats_w').payload;
+    ok(st.good === 8 && st.scrap === 2 && st.scrap_pct === 20 && st.stops === 1, 'stats tiles: 8 good, 2 scrap, 20% scrap, 1 stop', st);
+    ok(st.longest_machine === 'CNC-001' && st.longest_min >= 4.9, 'longest stop is CNC-001 (about 5 min)', st);
+    const co = out('chart_output_w').payload;
+    ok(co.length === 24 && co.every((p) => p.x && p.series && typeof p.y === 'number'), 'output chart: 12 hours x 2 series, {x,y,series} points', co.slice(0, 3));
+    ok(co.filter((p) => p.series === 'Good').reduce((n, p) => n + p.y, 0) === 8, 'output chart totals match the 8 good parts');
+    const cr = out('chart_reasons_w').payload;
+    ok(cr.length === 1 && cr[0].x === 'TOOL_BREAK' && cr[0].y >= 4.9, 'downtime chart groups by reason', cr);
+    const cy = out('chart_yield_w').payload;
+    ok(cy.length === 1 && cy[0].x === 'PRESS-001' && cy[0].y === 80, 'yield chart: PRESS-001 at 80%', cy);
+    ok(out('plant_a_w').payload === 'Manufaction Demo Factory · simulated plant, synthetic data' || typeof out('plant_a_w').payload === 'string', 'plant name reaches the Analytics header');
 
     console.log('pop-up alerts');
     await e.fire('toast_i');                       // first run: remembers position, shows nothing

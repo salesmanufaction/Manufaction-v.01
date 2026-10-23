@@ -96,7 +96,7 @@ See [`deploy/README.md`](deploy/README.md) (one-script setup, lowest-cost VM not
 ## Working in Node-RED
 
 CORE tabs: `00 Library & settings` (helpers, reload settings every 10 s), `01 Ingestion` (MQTT in, REST ingest), `02 Orders`, `03 Alerts`, `04 Notifications`, `05 REST API`, `06 Demo ERP`, `07 Housekeeping`. Function nodes call `global.get('db').query(sql, params)`; the helper library is in `global.get('lib')`.
-STUDIO tabs: `Plant overview`, `Settings & admin`, `READ ME: your flows`.
+STUDIO tabs: `Plant overview` (headline numbers, six machine cards), `Analytics` (charts, supporting numbers, detail tables), `Settings & admin`, `READ ME: your flows`. Dashboard pages: `/dashboard/overview`, `/dashboard/analytics`, `/dashboard/settings`.
 
 Flows are saved to `core/data/flows.json` and `studio/data/flows.json`. Both are in Git, so commit after each change you want to keep.
 
@@ -142,7 +142,7 @@ No Docker needed for the logic tests: a PostgreSQL with `001_schema.sql`, `002_s
 
 ```bash
 node tools/flowsim/test_core.js      # 63 checks of the CORE flows on real SQL
-node tools/flowsim/test_studio.js    # 38 checks of the STUDIO flows, as the restricted user
+node tools/flowsim/test_studio.js    # 50 checks of the STUDIO flows, as the restricted user
 DASH=<path to node-red-dashboard> node tools/lint_flows.js core/data/flows.json studio/data/flows.json
 ```
 

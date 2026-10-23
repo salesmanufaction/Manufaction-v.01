@@ -3,6 +3,7 @@
 #  /api/v1/health        public (for uptime monitors)
 #  /api/*  + Bearer      machine-to-machine clients (ERP, MES, edge); the CORE flows validate the token
 #  /api/*  (browser)     basic auth, then Caddy swaps in the API token before proxying
+#  /brand/*              logo and favicon files (public)
 #  /dashboard*           the plant dashboard (STUDIO), basic auth ("viewer" login)
 #  /studio*              the STUDIO editor, protected by its own Node-RED login (customer admin / owner)
 #  /                     redirects to the dashboard
@@ -41,6 +42,12 @@
 				header_up Authorization "Bearer {$MF_API_TOKEN}"
 			}
 		}
+	}
+
+	# logo and favicon (public images; the dashboard tab icon points here)
+	handle_path /brand/* {
+		root * /srv/brand
+		file_server
 	}
 
 	handle /dashboard* {

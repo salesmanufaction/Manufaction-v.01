@@ -27,7 +27,7 @@ add({"id": "pg_cfg", "type": "postgreSQLConfig", "name": "Manufaction database (
      "applicationName": "manufaction-studio", "applicationNameType": "str", "max": 5, "maxFieldType": "num", "idle": 1000,
      "idleFieldType": "num", "connectionTimeout": 10000, "connectionTimeoutFieldType": "num", "user": "${PGUSER}", "userFieldType": "str",
      "password": "${PGPASSWORD}", "passwordFieldType": "str"})
-add({"id": "ui_base", "type": "ui-base", "name": "Manufaction", "path": "/dashboard", "appIcon": "", "includeClientData": True,
+add({"id": "ui_base", "type": "ui-base", "name": "Manufaction", "path": "/dashboard", "appIcon": "/brand/favicon.png", "includeClientData": True,
      "acceptsClientConfig": ["ui-notification", "ui-control"], "showPathInSidebar": False, "headerContent": "page",
      "navigationStyle": "default", "titleBarStyle": "default", "showReconnectNotification": True, "notificationDisplayTime": 1,
      "showDisconnectNotification": True, "allowInstall": False})
@@ -45,7 +45,8 @@ def group(i, pg_, name, width, order, show=True):
          "className": "", "visible": True, "disabled": False, "groupType": "default"})
 
 page("pg_over", "Plant overview", "/overview", "factory", 1)
-page("pg_admin", "Settings", "/settings", "settings", 2)
+page("pg_ana", "Analytics", "/analytics", "chart-line", 2)
+page("pg_admin", "Settings", "/settings", "settings", 3)
 
 # ---------------------------------------------------------------- shared look
 CSS_NOTE = ""
@@ -74,26 +75,17 @@ def table(group_id, name, order, width=12):
             "mobileBreakpoint": "sm", "mobileBreakpointType": "defaults", "action": "replace", "className": ""}
 
 # ================================================================ TAB 1: Plant overview
-tab("tab_over", "Plant overview", "Everything on the Plant overview page. Each row of nodes is one panel: a timer asks the "
+tab("tab_over", "Plant overview", "The Plant overview page: headline numbers and one card per machine. Each row of nodes is one panel: a timer asks the "
     "database a question, a function shapes the answer, and a widget draws it. To change a panel, edit its SQL (the "
     "'Query' function) or its look (the template). Nothing here can change production data: this instance logs in to "
     "the database with a restricted user.")
 comment("c_over", "tab_over", "Plant overview: one row = one panel", "Timer -> Query -> Run SQL -> Shape -> Widget.\nDouble-click any node to change it. Deploy (top right) makes the change live for everyone.")
-for gid, nm, w, o in [("g_head", "Plant", 12, 0), ("g_kpi", "Today", 12, 1), ("g_alert", "Alerts", 12, 2), ("g_mach", "Machines", 12, 3),
-                      ("g_dt", "Downtime today", 6, 4), ("g_ord", "Production orders", 6, 5),
-                      ("g_wr", "Maintenance work requests", 6, 6), ("g_rcpt", "Receipts sent to the ERP", 6, 7),
-                      ("g_feed", "Recent notices", 12, 8)]:
-    group(gid, "pg_over", nm, w, o, show=(gid not in ("g_head", "g_kpi", "g_alert", "g_mach")))
+for gid, nm, w, o in [("g_head", "Plant", 12, 0), ("g_kpi", "Today", 12, 1), ("g_mach", "Machines", 12, 2)]:
+    group(gid, "pg_over", nm, w, o, show=False)
 y = 90
 view("tab_over", "plant", tpl("g_head", "Brand header", rd("tpl_header.vue"), 1), y, every=30); y += 70
 view("tab_over", "kpis", tpl("g_kpi", "KPI tiles", rd("tpl_kpis.vue"), 1), y); y += 70
-view("tab_over", "alerts", tpl("g_alert", "Alert banner", rd("tpl_alerts.vue"), 1), y); y += 70
-view("tab_over", "machines", tpl("g_mach", "Machine cards", rd("tpl_machines.vue"), 1), y); y += 70
-view("tab_over", "downtime", tpl("g_dt", "Downtime bars", rd("tpl_downtime.vue"), 1, 6), y); y += 70
-view("tab_over", "orders", table("g_ord", "Orders", 1, 6), y); y += 70
-view("tab_over", "workrequests", table("g_wr", "Work requests", 1, 6), y); y += 70
-view("tab_over", "receipts", table("g_rcpt", "Receipts", 1, 6), y); y += 70
-view("tab_over", "feed", table("g_feed", "Notices", 1, 12), y); y += 90
+view("tab_over", "machines", tpl("g_mach", "Machine cards", rd("tpl_machines.vue"), 1), y); y += 90
 
 # toast flow: new alert -> pop-up on every open dashboard
 add({"id": "n_toast", "type": "ui-notification", "z": "tab_over", "ui": "ui_base", "position": "top right", "colorDefault": True,
@@ -103,6 +95,39 @@ inject("toast_i", "tab_over", "Every 2 s", 2, 150, y, ["toast_q"])
 fn("toast_q", "tab_over", "New notices since last look", rd("t_toast.js"), 340, y, [["toast_p"]])
 pg("toast_p", "tab_over", "Run SQL", 560, y, ["toast_o"])
 fn("toast_o", "tab_over", "One pop-up per notice", rd("t_toast_out.js"), 740, y, [["n_toast"]])
+
+# ================================================================ TAB: Analytics
+tab("tab_ana", "Analytics", "The Analytics page: charts, supporting numbers and the detail tables. Same pattern as the overview: "
+    "timer -> Query -> Run SQL -> Shape -> widget. Chart rows send a list of {x, y, series} points; tables show any rows.")
+comment("c_ana", "tab_ana", "Analytics: charts and detail tables", "Charts want points shaped as {x, y, series}. The 'Shape' function in each row does that. Change the SQL, deploy, done.")
+for gid, nm, w, o, show in [("n_head", "Plant", 12, 0, False), ("n_stats", "Today in numbers", 12, 1, False), ("n_alert", "Alerts", 12, 2, False),
+                            ("n_out", "Output per hour (last 12 h)", 6, 3, True), ("n_rsn", "Downtime by reason today (minutes)", 6, 4, True),
+                            ("n_yld", "First-pass yield by machine today (%)", 6, 5, True), ("n_dt", "Downtime by machine today", 6, 6, True),
+                            ("n_ord", "Production orders", 6, 7, True), ("n_wr", "Maintenance work requests", 6, 8, True),
+                            ("n_rcpt", "Receipts sent to the ERP", 6, 9, True), ("n_feed", "Recent notices", 6, 10, True)]:
+    group(gid, "pg_ana", nm, w, o, show=show)
+
+def chart(group_id, name, stacked, colors, ymax=""):
+    return {"type": "ui-chart", "group": group_id, "name": name, "label": "", "order": 1, "chartType": "bar", "category": "series",
+            "categoryType": "property", "xAxisLabel": "", "xAxisProperty": "x", "xAxisPropertyType": "property", "xAxisType": "category",
+            "xAxisFormat": "", "xAxisFormatType": "auto", "xmin": "", "xmax": "", "yAxisLabel": "", "yAxisProperty": "y",
+            "yAxisPropertyType": "property", "ymin": "0", "ymax": ymax, "bins": 10, "action": "replace", "stackSeries": stacked,
+            "pointShape": "circle", "pointRadius": 4, "showLegend": True, "removeOlder": 0, "removeOlderUnit": "3600",
+            "removeOlderPoints": "", "colors": colors, "textColor": ["#666666"], "textColorDefault": True, "gridColor": ["#e5e5e5"],
+            "gridColorDefault": True, "width": 6, "height": 5, "className": "", "interpolation": "linear"}
+
+y = 90
+view("tab_ana", "plant_a", tpl("n_head", "Brand header", rd("tpl_header.vue"), 1), y, every=30); y += 70
+view("tab_ana", "stats", tpl("n_stats", "Number tiles", rd("tpl_stats.vue"), 1), y); y += 70
+view("tab_ana", "alerts", tpl("n_alert", "Alert banner", rd("tpl_alerts.vue"), 1), y); y += 70
+view("tab_ana", "chart_output", chart("n_out", "Output per hour", True, ["#facc15", "#dc2626"]), y); y += 70
+view("tab_ana", "chart_reasons", chart("n_rsn", "Downtime by reason", False, ["#dc2626"]), y); y += 70
+view("tab_ana", "chart_yield", chart("n_yld", "Yield by machine", False, ["#475569"], ymax="100"), y); y += 70
+view("tab_ana", "downtime", tpl("n_dt", "Downtime bars", rd("tpl_downtime.vue"), 1, 6), y); y += 70
+view("tab_ana", "orders", table("n_ord", "Orders", 1, 6), y); y += 70
+view("tab_ana", "workrequests", table("n_wr", "Work requests", 1, 6), y); y += 70
+view("tab_ana", "receipts", table("n_rcpt", "Receipts", 1, 6), y); y += 70
+view("tab_ana", "feed", table("n_feed", "Notices", 1, 6), y); y += 70
 
 # ================================================================ TAB 2: Settings & admin
 tab("tab_admin", "Settings & admin", "Customer administration: change how the plant behaves without touching code. "
