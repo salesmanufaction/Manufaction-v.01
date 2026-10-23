@@ -55,9 +55,12 @@
 	}
 
 	handle {
-		basic_auth {
-			{$MF_BASIC_USER} {$MF_BASIC_HASH}
+		# "route" keeps the order as written: ask for the login first, then redirect.
+		route {
+			basic_auth {
+				{$MF_BASIC_USER} {$MF_BASIC_HASH}
+			}
+			redir * /dashboard/overview 302
 		}
-		redir * /dashboard/overview 302
 	}
 }
