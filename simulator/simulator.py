@@ -8,7 +8,7 @@ Topics (all under mf/v1/site/{SITE}/asset/{ASSET}/...):
   telemetry  every TELEMETRY_SECONDS   {"timestamp", "asset_id", "signals": {...}, "units": {...}}
   status     on change                 {"timestamp", "asset_id", "status", "reason_code"?}
   event      on occurrence             {"timestamp", "asset_id", "event_type", ...}
-  command    subscribed                {"command": "start_order" | "complete_order", ...}
+  command    subscribed                {"command": "start_order" | "complete_order" | "inject_fault", ...}
 
 State machine per asset:   IDLE --start_order--> RUNNING --fault--> FAULTED --repair--> RUNNING
                            RUNNING --complete_order--> IDLE
@@ -36,6 +36,14 @@ TELEMETRY_SECONDS = float(os.getenv("SIM_TELEMETRY_SECONDS", "5"))
 SPEED = float(os.getenv("SIM_SPEED", "1.0"))          # >1 runs the factory faster
 FAULT_RATE = float(os.getenv("SIM_FAULT_RATE", "0.02"))  # probability of a fault per cycle
 SCRAP_RATE = float(os.getenv("SIM_SCRAP_RATE", "0.03"))  # probability a part is scrap
+
+# Demo mode: faults happen on a predictable schedule instead of at random, so a recorded
+# demo always has a downtime moment. Random faults are switched off while it is on.
+DEMO_MODE = os.getenv("SIM_DEMO_MODE", "false").strip().lower() in ("1", "true", "yes", "on")
+DEMO_FAULT_EVERY = float(os.getenv("SIM_DEMO_FAULT_EVERY", "75"))     # seconds between scheduled faults
+DEMO_FAULT_SECONDS = float(os.getenv("SIM_DEMO_FAULT_SECONDS", "30")) # how long each one lasts (real seconds)
+if DEMO_MODE:
+    FAULT_RATE = 0.0
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("simulator")
@@ -112,6 +120,8 @@ class Factory:
         self.client.on_message = self.on_message
         self.client.on_disconnect = lambda *a: log.warning("disconnected from broker")
         self.stop = threading.Event()
+        self.demo_turn = 0
+        self.next_demo_fault = time.monotonic() + max(DEMO_FAULT_EVERY, 20.0)  # first one after start-up
 
     # ------------------------------------------------------------------ mqtt
     def topic(self, asset_id: str, kind: str) -> str:
@@ -167,11 +177,42 @@ class Factory:
                     m.order_number = m.part_number = None
                     if m.status == "running":
                         self.set_status(m, "idle")
+            elif command == "inject_fault":
+                ok = self.inject_fault_locked(m, cmd.get("reason_code"), cmd.get("duration_seconds"))
+                if not ok:
+                    self.publish(m, "event", {"event_type": "command_rejected", "command": command,
+                                              "reason": "not_running"})
             else:
                 log.info("%s: unknown command %r acknowledged", asset_id, command)
                 self.publish(m, "event", {"event_type": "command_ack", "command": command})
 
     # ------------------------------------------------------------------ behaviour
+    def inject_fault_locked(self, m: Machine, code: str | None = None, seconds: float | None = None) -> bool:
+        """Put a RUNNING machine into a fault now. Caller must hold m.lock."""
+        if m.status != "running":
+            return False
+        options = FAULTS[m.kind]
+        chosen = next((f for f in options if f[0] == (code or "").upper()), None) or random.choice(options)
+        m.fault = chosen
+        m.fault_until = time.monotonic() + (seconds if seconds else DEMO_FAULT_SECONDS)
+        self.set_status(m, "faulted", chosen)
+        log.info("%s FAULT %s (injected, %.0fs)", m.asset_id, chosen[0], m.fault_until - time.monotonic())
+        return True
+
+    def demo_schedule(self) -> None:
+        """In demo mode, fault the next running machine in rotation every DEMO_FAULT_EVERY seconds."""
+        if not DEMO_MODE or time.monotonic() < self.next_demo_fault:
+            return
+        order = list(MACHINES.values())
+        for step in range(len(order)):
+            m = order[(self.demo_turn + step) % len(order)]
+            with m.lock:
+                if self.inject_fault_locked(m):
+                    self.demo_turn = (self.demo_turn + step + 1) % len(order)
+                    self.next_demo_fault = time.monotonic() + DEMO_FAULT_EVERY
+                    return
+        self.next_demo_fault = time.monotonic() + 5     # nobody running yet; look again shortly
+
     def set_status(self, m: Machine, status: str, reason: tuple | None = None) -> None:
         if m.status == status:
             return
@@ -219,6 +260,7 @@ class Factory:
         while not self.stop.is_set():
             for m in MACHINES.values():
                 self.tick(m)
+            self.demo_schedule()
             if time.monotonic() - last_telemetry >= TELEMETRY_SECONDS and self.client.is_connected():
                 last_telemetry = time.monotonic()
                 for m in MACHINES.values():
@@ -233,6 +275,6 @@ if __name__ == "__main__":
     factory = Factory()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: factory.stop.set())
-    log.info("Manufaction virtual factory starting (site=%s, speed=%sx)", SITE, SPEED)
+    log.info("Manufaction virtual factory starting (site=%s, speed=%sx, demo_mode=%s)", SITE, SPEED, DEMO_MODE)
     factory.run()
     sys.exit(0)

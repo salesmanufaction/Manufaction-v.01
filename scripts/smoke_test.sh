@@ -39,6 +39,9 @@ curl -sk -H "$AUTH" "$BASE/api/v1/dashboard" > /tmp/mf_dash.json
 python3 - /tmp/mf_dash.json <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
+for key in ("active_alerts", "notifications", "maintenance_requests"):
+    if key not in d:
+        sys.exit("dashboard is missing '%s' (old database volume? run: docker compose down -v)" % key)
 for a in d["assets"]:
     o = a["active_order"] or {}
     order = "%s %s/%s" % (o.get("order_number", "-"), o.get("completed_quantity", ""), o.get("target_quantity", ""))

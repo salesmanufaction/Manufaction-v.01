@@ -81,6 +81,7 @@ CREATE TABLE production_orders (
     released_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     started_at         TIMESTAMPTZ,
     completed_at       TIMESTAMPTZ,
+    seeded             BOOLEAN NOT NULL DEFAULT FALSE,   -- TRUE for pre-loaded demo history
     created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT po_status_chk CHECK (status IN ('released','running','complete','cancelled'))
 );
@@ -109,6 +110,7 @@ CREATE TABLE downtime_events (
     started_at         TIMESTAMPTZ NOT NULL,
     ended_at           TIMESTAMPTZ,
     duration_seconds   INTEGER,
+    seeded             BOOLEAN NOT NULL DEFAULT FALSE,  -- TRUE for pre-loaded demo history
     created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE UNIQUE INDEX downtime_one_open_per_asset ON downtime_events (asset_id) WHERE ended_at IS NULL;
@@ -123,9 +125,44 @@ CREATE TABLE quality_events (
     defect_code         VARCHAR(100),
     metadata            JSONB,
     event_time          TIMESTAMPTZ NOT NULL,
+    seeded              BOOLEAN NOT NULL DEFAULT FALSE,  -- TRUE for pre-loaded demo history
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX quality_events_asset_time ON quality_events (asset_id, event_time DESC);
+
+-- ---------------------------------------------------------------- alerts & maintenance
+-- Created by triggers on downtime_events (see 002_functions.sql). v0.1 records the work
+-- request and shows it on the dashboard; real delivery (email/SMS/CMMS) is a v0.2 connector.
+CREATE SEQUENCE work_request_seq;
+
+CREATE TABLE maintenance_requests (
+    id                BIGSERIAL PRIMARY KEY,
+    request_number    VARCHAR(30) NOT NULL UNIQUE,          -- WR-YYMMDD-001
+    asset_id          UUID NOT NULL REFERENCES assets(id),
+    downtime_event_id BIGINT REFERENCES downtime_events(id) ON DELETE CASCADE,
+    reason_code       VARCHAR(100),
+    description       VARCHAR(255),
+    assigned_to       VARCHAR(100) NOT NULL DEFAULT 'Maintenance on-call',
+    status            VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed')),
+    opened_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    closed_at         TIMESTAMPTZ,
+    seeded            BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX maintenance_requests_open ON maintenance_requests (opened_at DESC);
+
+CREATE TABLE notifications (
+    id                BIGSERIAL PRIMARY KEY,
+    kind              VARCHAR(40) NOT NULL
+                      CHECK (kind IN ('downtime_alert','maintenance_dispatched','recovered')),
+    severity          VARCHAR(20) NOT NULL CHECK (severity IN ('critical','info','success')),
+    asset_id          UUID REFERENCES assets(id),
+    downtime_event_id BIGINT REFERENCES downtime_events(id) ON DELETE CASCADE,
+    title             VARCHAR(200) NOT NULL,
+    message           VARCHAR(500),
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    seeded            BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX notifications_time ON notifications (created_at DESC, id DESC);
 
 -- ---------------------------------------------------------------- telemetry
 -- Plain table for v0.1. When volume grows, move to TimescaleDB or partitioning.

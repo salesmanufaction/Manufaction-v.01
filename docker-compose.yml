@@ -104,6 +104,9 @@ services:
       SIM_SPEED: ${SIM_SPEED:-1.0}
       SIM_FAULT_RATE: ${SIM_FAULT_RATE:-0.02}
       SIM_SCRAP_RATE: ${SIM_SCRAP_RATE:-0.03}
+      SIM_DEMO_MODE: ${SIM_DEMO_MODE:-false}
+      SIM_DEMO_FAULT_EVERY: ${SIM_DEMO_FAULT_EVERY:-75}
+      SIM_DEMO_FAULT_SECONDS: ${SIM_DEMO_FAULT_SECONDS:-30}
     depends_on: [mqtt, nodered]
     networks: [manufaction]
 

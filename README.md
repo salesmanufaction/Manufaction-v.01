@@ -51,6 +51,24 @@ Open **https://localhost** (accept the self-signed certificate) and log in with 
 
 Set `SIM_SPEED=5` in `.env` (then `docker compose up -d simulator`) to make a live demo move five times faster.
 
+## Recording a demo video
+
+Demo mode makes the downtime story happen on cue, and the dashboard flags it as a simulated plant. Full storyboard and talking points: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
+
+```bash
+# 1. In .env set:  SIM_DEMO_MODE=true   SIM_SPEED=3   (optional: SIM_DEMO_FAULT_EVERY=75, SIM_DEMO_FAULT_SECONDS=30)
+docker compose up -d simulator            # picks up the new settings
+./scripts/demo_reset.sh --yes             # clean slate (deletes all demo data)
+./scripts/demo_seed.sh                    # pre-load today's history so the dashboard isn't empty
+# 2. Open https://localhost/?present=1 (larger text for screen recording) and hit record.
+./scripts/demo_fault.sh                   # fault a machine on cue, or let demo mode schedule one
+./scripts/demo_fault.sh CNC-001 TOOL_BREAK 45     # choose machine, reason code, seconds
+```
+
+What the viewer sees when a machine faults: a red alert bar with the reason code, a **work request** raised for Maintenance on-call (`WR-…`), the machine card and downtime tiles updating, and when the machine recovers the request closes and a "back in production" notice appears. In v0.1 the work request is recorded and shown on the dashboard; delivering it by email, SMS or a maintenance system (CMMS) is a connector for v0.2, so say "notified on the dashboard" rather than "emailed" on camera.
+
+Demo history is generated deterministically and flagged in the database, so `demo_seed.sh` is safe to re-run. It fills today only: run it more than ~30 minutes after midnight (site time).
+
 ## Deploying on a cloud VM
 
 1. Create a small Ubuntu VM (1–2 vCPU, 2 GB RAM is plenty) on a **personal** account.
@@ -139,7 +157,7 @@ docker compose exec postgres psql -U manufaction -c \
   "select mf.ingest('demo','PRESS-001','status','{\"status\":\"faulted\",\"reason_code\":\"JAM\"}')"
 ```
 
-Init scripts run only on an **empty** volume. During v0.1, reset with `docker compose down -v` (this deletes all data). Add a migration tool (e.g. Sqitch or Flyway) before the first real pilot.
+Init scripts run only on an **empty** volume. During v0.1, reset with `docker compose down -v` (this deletes all data). If you started the stack before the alerts and demo-mode update, do this once so the new tables are created. Add a migration tool (e.g. Sqitch or Flyway) before the first real pilot.
 
 ## Security posture (v0.1)
 
@@ -175,6 +193,11 @@ nodered/data/             settings.js, flows.json, flows_cred.json (placeholders
 simulator/                Python virtual factory (stands in for Manufaction Edge)
 scripts/setup.sh          generate secrets
 scripts/smoke_test.sh     end-to-end check
+scripts/demo_fault.sh     trigger a machine fault on cue (demo)
+scripts/demo_seed.sh      pre-load today's history (demo)
+scripts/demo_reset.sh     wipe demo data for a clean take
+postgres/demo/            seed and reset SQL for the demo scripts
+docs/DEMO_SCRIPT.md       storyboard for the demo video
 ```
 
 ## Keep it separate

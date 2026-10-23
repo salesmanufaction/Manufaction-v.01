@@ -283,7 +283,10 @@ LANGUAGE sql STABLE AS $$
         'open_downtime', (
             SELECT jsonb_build_object('status', d.status, 'reason_code', d.reason_code,
                                       'reason_description', d.reason_description,
-                                      'started_at', d.started_at)
+                                      'started_at', d.started_at,
+                                      'work_request', (SELECT r.request_number
+                                                         FROM mf.maintenance_requests r
+                                                        WHERE r.downtime_event_id = d.id LIMIT 1))
               FROM mf.downtime_events d WHERE d.asset_id = a.id AND d.ended_at IS NULL))
       FROM mf.assets a
       JOIN mf.sites s ON s.id = a.site_id
@@ -381,7 +384,42 @@ BEGIN
                            COALESCE(e.metadata->>'order_number', e.metadata->>'defect_code') AS detail
                       FROM mf.production_events e JOIN mf.assets a ON a.id = e.asset_id
                      WHERE a.site_id = v_site.id AND e.event_type <> 'cycle_complete'
-                     ORDER BY e.event_time DESC LIMIT 10) x), '[]'::jsonb)
+                     ORDER BY e.event_time DESC LIMIT 10) x), '[]'::jsonb),
+
+        -- machines that are down right now, with the maintenance work request raised for them
+        'active_alerts', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object(
+                       'asset', a.asset_code, 'name', a.name, 'status', d.status,
+                       'reason_code', d.reason_code, 'reason_description', d.reason_description,
+                       'started_at', d.started_at,
+                       'work_request', r.request_number, 'assigned_to', r.assigned_to)
+                     ORDER BY d.started_at)
+              FROM mf.downtime_events d
+              JOIN mf.assets a ON a.id = d.asset_id
+              LEFT JOIN mf.maintenance_requests r ON r.downtime_event_id = d.id
+             WHERE a.site_id = v_site.id AND d.ended_at IS NULL
+               AND d.status IN ('faulted','stopped')), '[]'::jsonb),
+
+        'notifications', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object(
+                       'id', n.id, 'kind', n.kind, 'severity', n.severity, 'asset', n.asset_code,
+                       'title', n.title, 'message', n.message, 'created_at', n.created_at)
+                     ORDER BY n.created_at DESC, n.id DESC)
+              FROM (SELECT n.*, a.asset_code FROM mf.notifications n
+                      LEFT JOIN mf.assets a ON a.id = n.asset_id
+                     WHERE a.site_id = v_site.id OR n.asset_id IS NULL
+                     ORDER BY n.created_at DESC, n.id DESC LIMIT 10) n), '[]'::jsonb),
+
+        'maintenance_requests', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object(
+                       'request_number', m.request_number, 'asset', m.asset_code,
+                       'reason_code', m.reason_code, 'assigned_to', m.assigned_to,
+                       'status', m.status, 'opened_at', m.opened_at, 'closed_at', m.closed_at)
+                     ORDER BY m.opened_at DESC, m.id DESC)
+              FROM (SELECT r.*, a.asset_code FROM mf.maintenance_requests r
+                      JOIN mf.assets a ON a.id = r.asset_id
+                     WHERE a.site_id = v_site.id
+                     ORDER BY r.opened_at DESC, r.id DESC LIMIT 5) m), '[]'::jsonb)
     );
 END $$;
 
@@ -415,3 +453,70 @@ BEGIN
     GET DIAGNOSTICS n = ROW_COUNT;
     RETURN n;
 END $$;
+
+-- ============================================================== alerts & maintenance
+-- A machine going down raises a dashboard alert and a maintenance work request;
+-- recovery closes the request. Triggers keep this identical for MQTT and REST input.
+CREATE OR REPLACE FUNCTION mf.fmt_duration(p_seconds INT) RETURNS TEXT
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT CASE WHEN p_seconds IS NULL THEN 'unknown time'
+                WHEN p_seconds < 60  THEN p_seconds || 's'
+                WHEN p_seconds < 3600 THEN (p_seconds / 60) || 'm ' || lpad((p_seconds % 60)::text, 2, '0') || 's'
+                ELSE (p_seconds / 3600) || 'h ' || lpad(((p_seconds % 3600) / 60)::text, 2, '0') || 'm' END
+$$;
+
+CREATE OR REPLACE FUNCTION mf.on_downtime_open() RETURNS TRIGGER
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_code  TEXT;
+    v_tz    TEXT;
+    v_req   TEXT;
+    v_what  TEXT := COALESCE(NULLIF(NEW.reason_description, ''), NULLIF(NEW.reason_code, ''), 'No reason reported');
+BEGIN
+    SELECT a.asset_code, s.timezone INTO v_code, v_tz
+      FROM mf.assets a JOIN mf.sites s ON s.id = a.site_id WHERE a.id = NEW.asset_id;
+
+    INSERT INTO mf.notifications (kind, severity, asset_id, downtime_event_id, title, message, created_at)
+    VALUES ('downtime_alert', 'critical', NEW.asset_id, NEW.id,
+            v_code || ' ' || NEW.status, v_what, NEW.started_at);
+
+    IF NEW.status = 'faulted' THEN
+        v_req := 'WR-' || to_char(NEW.started_at AT TIME ZONE v_tz, 'YYMMDD') || '-'
+                 || lpad(nextval('mf.work_request_seq')::text, 3, '0');
+        INSERT INTO mf.maintenance_requests (request_number, asset_id, downtime_event_id,
+                                             reason_code, description, opened_at)
+        VALUES (v_req, NEW.asset_id, NEW.id, NEW.reason_code, v_what, NEW.started_at);
+
+        INSERT INTO mf.notifications (kind, severity, asset_id, downtime_event_id, title, message, created_at)
+        VALUES ('maintenance_dispatched', 'info', NEW.asset_id, NEW.id,
+                'Maintenance notified',
+                v_req || ' sent to Maintenance on-call for ' || v_code, NEW.started_at + INTERVAL '1 second');
+    END IF;
+    RETURN NEW;
+END $$;
+
+CREATE OR REPLACE FUNCTION mf.on_downtime_close() RETURNS TRIGGER
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_code TEXT;
+BEGIN
+    SELECT asset_code INTO v_code FROM mf.assets WHERE id = NEW.asset_id;
+
+    UPDATE mf.maintenance_requests SET status = 'closed', closed_at = NEW.ended_at
+     WHERE downtime_event_id = NEW.id AND status = 'open';
+
+    IF NEW.status IN ('faulted', 'stopped') THEN
+        INSERT INTO mf.notifications (kind, severity, asset_id, downtime_event_id, title, message, created_at)
+        VALUES ('recovered', 'success', NEW.asset_id, NEW.id,
+                v_code || ' back in production',
+                'Down for ' || mf.fmt_duration(NEW.duration_seconds), NEW.ended_at);
+    END IF;
+    RETURN NEW;
+END $$;
+
+CREATE TRIGGER downtime_open_trg AFTER INSERT ON mf.downtime_events
+    FOR EACH ROW WHEN (NOT NEW.seeded) EXECUTE FUNCTION mf.on_downtime_open();
+
+CREATE TRIGGER downtime_close_trg AFTER UPDATE OF ended_at ON mf.downtime_events
+    FOR EACH ROW WHEN (OLD.ended_at IS NULL AND NEW.ended_at IS NOT NULL AND NOT NEW.seeded)
+    EXECUTE FUNCTION mf.on_downtime_close();
