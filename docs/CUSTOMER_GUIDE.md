@@ -19,7 +19,7 @@ The dashboard has three pages in the left menu: **Plant overview** (headline num
 Copy a row (select its nodes, Ctrl+C, Ctrl+V), change the SQL, set the widget's group. A table is the quickest: any SQL that returns rows becomes a table.
 
 ## Colours and branding
-Dashboard sidebar (top right arrow) → **Theme**. The brand colours are the theme named *Brand theme*.
+Open the **Look and feel** tab in `/studio`. The *Site style* node holds three colours at the top (`--mf-blue` top banner, `--mf-dark` side menu and panel titles, `--mf-yellow` accents); the *Top banner* node holds the logo and the "Manufaction UI" text. Page background and button colours are in the theme node *Brand theme* on the Plant overview tab.
 
 ## What you cannot change here
 Machine data collection, order counting, alert and work-request rules, and the REST API live in a separate, locked part of the system maintained by us. Ask us and we will change it, or expose a setting for you.

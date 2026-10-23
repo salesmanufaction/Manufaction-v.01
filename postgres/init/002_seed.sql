@@ -25,7 +25,7 @@ SELECT ar.site_id, ar.id, v.code, v.name, v.type, v.mfr, v.model, v.part, v.cycl
 
 -- ------------------------------------------------------------------ settings
 INSERT INTO mf.settings (key, value, description) VALUES
- ('plant_name',            '"Manufaction Demo Factory · simulated plant, synthetic data"', 'Name shown in the dashboard header'),
+ ('plant_name',            '"Manufaction Demo Factory"', 'Plant name, for your own flows and reports'),
  ('offline_after_seconds', '30',    'A machine silent for this long is shown as Offline'),
  ('downtime_statuses',     '["faulted","stopped","maintenance"]', 'Statuses that count as downtime'),
  ('alert_statuses',        '["faulted","stopped"]', 'Statuses that raise a dashboard alert'),

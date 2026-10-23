@@ -32,7 +32,8 @@ for (const f of process.argv.slice(2)) {
         if (n.type === 'ui-notification' && !ids.has(n.ui)) err(f, `${lab}: ui-base ${n.ui} missing`);
         if (n.type === 'ui-group' && !ids.has(n.page)) err(f, `${lab}: page missing`);
         if (n.type === 'ui-page' && (!ids.has(n.ui) || !ids.has(n.theme))) err(f, `${lab}: ui-base or theme missing`);
-        if (['ui-template', 'ui-table', 'ui-form', 'ui-text'].includes(n.type) && !ids.has(n.group)) err(f, `${lab}: group ${n.group} missing`);
+        if (n.type === 'ui-template' && n.templateScope && n.templateScope !== 'local') { if (!ids.has(n.ui)) err(f, `${lab}: ui-base missing`); }
+        else if (['ui-template', 'ui-table', 'ui-form', 'ui-text', 'ui-chart'].includes(n.type) && !ids.has(n.group)) err(f, `${lab}: group ${n.group} missing`);
         if (n.type === 'postgresql' && !ids.has(n.postgreSQLConfig)) err(f, `${lab}: database config missing`);
         if (process.env.DASH && n.type.startsWith('ui-')) {
             const keys = cache[n.type] || (cache[n.type] = widgetKeys(process.env.DASH, n.type));

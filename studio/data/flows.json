@@ -172,6 +172,71 @@
     "disabled": false
   },
   {
+    "id": "chrome_bar",
+    "type": "ui-template",
+    "z": "tab_chrome",
+    "group": "",
+    "page": "",
+    "ui": "ui_base",
+    "name": "Top banner: logo + Manufaction UI",
+    "order": 0,
+    "width": 0,
+    "height": 0,
+    "head": "",
+    "format": "<template>\n  <div class=\"mf-topbar\">\n    <svg class=\"mf-topbar-logo\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Manufaction\">\n      <rect width=\"48\" height=\"48\" rx=\"6\" fill=\"#1f2937\" />\n      <path d=\"M10 39V13l14 15 14-15v26M24 8v15\" fill=\"none\" stroke=\"#facc15\" stroke-width=\"3.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" />\n      <circle cx=\"10\" cy=\"39\" r=\"3.4\" fill=\"#ffffff\" /><circle cx=\"38\" cy=\"39\" r=\"3.4\" fill=\"#ffffff\" /><circle cx=\"24\" cy=\"8\" r=\"3.4\" fill=\"#ffffff\" />\n      <circle cx=\"24\" cy=\"28\" r=\"5.4\" fill=\"#facc15\" /><circle cx=\"24\" cy=\"28\" r=\"2\" fill=\"#1f2937\" />\n    </svg>\n    <span class=\"mf-topbar-title\">Manufaction UI</span>\n  </div>\n</template>\n\n<script>\nexport default {\n  mounted: function () {\n    // the page-name bar sits under this banner; tell the stylesheet how tall it is\n    var bar = document.querySelector('.v-app-bar')\n    if (bar && bar.offsetHeight) document.documentElement.style.setProperty('--mf-bar', bar.offsetHeight + 'px')\n  }\n}\n</script>",
+    "storeOutMessages": false,
+    "passthru": false,
+    "resendOnRefresh": false,
+    "templateScope": "widget:ui",
+    "className": "",
+    "x": 260,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "chrome_css",
+    "type": "ui-template",
+    "z": "tab_chrome",
+    "group": "",
+    "page": "",
+    "ui": "ui_base",
+    "name": "Site style (colours, side menu, panel titles)",
+    "order": 0,
+    "width": 0,
+    "height": 0,
+    "head": "",
+    "format": "/* Manufaction dashboard chrome. Site-wide stylesheet (ui-template, scope \"site:style\").\n   Change the two colours here; everything else follows. */\n:root { --mf-top: 48px; --mf-blue: #1e40af; --mf-dark: #1f2937; --mf-yellow: #facc15; }\n\n/* Top banner: blue, white letters, above the page-name bar */\n.mf-topbar { position: fixed; top: 0; left: 0; right: 0; height: var(--mf-top); z-index: 2100; display: flex; align-items: center; gap: 12px;\n  padding: 0 16px; background: var(--mf-blue); color: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }\n.mf-topbar-logo { width: 30px; height: 30px; flex: none; }\n.mf-topbar-title { font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif; font-size: 24px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #ffffff; }\n\n/* Push the page-name bar, side menu and content down by the banner height */\n.nrdb-app .v-app-bar { top: var(--mf-top) !important; }\n.nrdb-app .v-main { padding-top: calc(var(--v-layout-top, 64px) + var(--mf-top)) !important; }\n.nrdb-app .v-navigation-drawer { top: calc(var(--mf-bar, 64px) + var(--mf-top)) !important; height: calc(100% - var(--mf-bar, 64px) - var(--mf-top)) !important; }\n\n/* Dark side menu with a yellow marker on the current page */\n.nrdb-app .v-navigation-drawer { background: var(--mf-dark) !important; color: #e5e7eb !important; }\n.nrdb-app .v-navigation-drawer .v-list-item { color: #e5e7eb !important; border-left: 4px solid transparent; }\n.nrdb-app .v-navigation-drawer .v-list-item .v-icon { color: #e5e7eb !important; opacity: 1 !important; }\n.nrdb-app .v-navigation-drawer .v-list-item--active { background: rgba(250, 204, 21, .14) !important; border-left-color: var(--mf-yellow); color: var(--mf-yellow) !important; }\n.nrdb-app .v-navigation-drawer .v-list-item--active .v-icon { color: var(--mf-yellow) !important; }\n\n/* Panels: dark title bar with a yellow underline */\n.nrdb-ui-group > .v-card > .v-card-item { background: var(--mf-dark); color: #ffffff; padding: 8px 16px; border-bottom: 3px solid var(--mf-yellow);\n  border-radius: var(--group-border-radius) var(--group-border-radius) 0 0; }\n.nrdb-ui-group > .v-card > .v-card-item .v-card-title { color: #ffffff; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; }\n\n/* Tables: dark header row */\n.nrdb-ui-group .v-table thead th, .nrdb-ui-group .v-data-table-header th { background: var(--mf-dark) !important; color: #ffffff !important; }",
+    "storeOutMessages": false,
+    "passthru": false,
+    "resendOnRefresh": false,
+    "templateScope": "site:style",
+    "className": "",
+    "x": 260,
+    "y": 180,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "tab_chrome",
+    "type": "tab",
+    "label": "Look and feel",
+    "disabled": false,
+    "info": "Site-wide look: the blue top banner and the dark side menu / panel titles. Edit the colours at the top of the Site style node."
+  },
+  {
+    "id": "c_chrome",
+    "type": "comment",
+    "z": "tab_chrome",
+    "name": "Look and feel (every page)",
+    "info": "Top banner = template with scope 'UI'. Site style = CSS for the whole dashboard. Change --mf-blue, --mf-dark or --mf-yellow at the top of the CSS.",
+    "x": 200,
+    "y": 40,
+    "wires": []
+  },
+  {
     "id": "tab_over",
     "type": "tab",
     "label": "Plant overview",
@@ -187,20 +252,6 @@
     "x": 200,
     "y": 40,
     "wires": []
-  },
-  {
-    "id": "g_head",
-    "type": "ui-group",
-    "name": "Plant",
-    "page": "pg_over",
-    "width": 12,
-    "height": 1,
-    "order": 0,
-    "showTitle": false,
-    "className": "",
-    "visible": true,
-    "disabled": false,
-    "groupType": "default"
   },
   {
     "id": "g_kpi",
@@ -231,113 +282,6 @@
     "groupType": "default"
   },
   {
-    "id": "plant_i",
-    "type": "inject",
-    "z": "tab_over",
-    "name": "Every 30 s",
-    "props": [
-      {
-        "p": "payload"
-      }
-    ],
-    "repeat": "30",
-    "crontab": "",
-    "once": true,
-    "onceDelay": "1",
-    "topic": "",
-    "payload": "",
-    "payloadType": "date",
-    "x": 150,
-    "y": 90,
-    "wires": [
-      [
-        "plant_q"
-      ]
-    ]
-  },
-  {
-    "id": "plant_q",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Query: plant",
-    "func": "// Plant name shown at the top of the dashboard (Settings page: plant_name)\nmsg.query = `SELECT value #>> '{}' AS name FROM mf.settings WHERE key = 'plant_name'`;\nmsg.params = [];\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 340,
-    "y": 90,
-    "wires": [
-      [
-        "plant_p"
-      ]
-    ]
-  },
-  {
-    "id": "plant_p",
-    "type": "postgresql",
-    "z": "tab_over",
-    "name": "Run SQL",
-    "query": "",
-    "postgreSQLConfig": "pg_cfg",
-    "split": false,
-    "rowsPerMsg": 1,
-    "outputs": 1,
-    "x": 530,
-    "y": 90,
-    "wires": [
-      [
-        "plant_s"
-      ]
-    ]
-  },
-  {
-    "id": "plant_s",
-    "type": "function",
-    "z": "tab_over",
-    "name": "Shape for the screen",
-    "func": "msg.payload = (msg.payload && msg.payload[0] && msg.payload[0].name) || 'Plant overview';\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 700,
-    "y": 90,
-    "wires": [
-      [
-        "plant_w"
-      ]
-    ]
-  },
-  {
-    "type": "ui-template",
-    "group": "g_head",
-    "page": "",
-    "ui": "",
-    "name": "Brand header",
-    "order": 1,
-    "width": 12,
-    "height": 0,
-    "head": "",
-    "format": "<template>\n  <div class=\"mf-head\">\n    <svg class=\"mf-logo\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Manufaction\">\n      <rect width=\"48\" height=\"48\" rx=\"6\" fill=\"#1f2937\" />\n      <path d=\"M10 39V13l14 15 14-15v26M24 8v15\" fill=\"none\" stroke=\"#facc15\" stroke-width=\"3.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" />\n      <circle cx=\"10\" cy=\"39\" r=\"3.4\" fill=\"#ffffff\" /><circle cx=\"38\" cy=\"39\" r=\"3.4\" fill=\"#ffffff\" /><circle cx=\"24\" cy=\"8\" r=\"3.4\" fill=\"#ffffff\" />\n      <circle cx=\"24\" cy=\"28\" r=\"5.4\" fill=\"#facc15\" /><circle cx=\"24\" cy=\"28\" r=\"2\" fill=\"#1f2937\" />\n    </svg>\n    <div class=\"mf-plant\">{{ plant }}</div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    plant: function () {\n      var p = this.msg && this.msg.payload\n      return typeof p === 'string' && p ? p : 'Plant overview'\n    }\n  }\n}\n</script>\n\n<style>\n.mf-head { display: flex; align-items: center; gap: 14px; }\n.mf-logo { width: 40px; height: 40px; flex: none; }\n.mf-plant { font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif; font-size: 26px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }\n</style>",
-    "storeOutMessages": true,
-    "passthru": true,
-    "resendOnRefresh": true,
-    "templateScope": "local",
-    "className": "",
-    "id": "plant_w",
-    "z": "tab_over",
-    "x": 910,
-    "y": 90,
-    "wires": [
-      []
-    ]
-  },
-  {
     "id": "kpis_i",
     "type": "inject",
     "z": "tab_over",
@@ -355,7 +299,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 160,
+    "y": 90,
     "wires": [
       [
         "kpis_q"
@@ -375,7 +319,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 160,
+    "y": 90,
     "wires": [
       [
         "kpis_p"
@@ -393,7 +337,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 530,
-    "y": 160,
+    "y": 90,
     "wires": [
       [
         "kpis_s"
@@ -413,7 +357,7 @@
     "finalize": "",
     "libs": [],
     "x": 700,
-    "y": 160,
+    "y": 90,
     "wires": [
       [
         "kpis_w"
@@ -430,7 +374,7 @@
     "width": 12,
     "height": 0,
     "head": "",
-    "format": "<template>\n  <div class=\"mf-kpis\">\n    <div class=\"mf-kpi\">\n      <div class=\"mf-kpi-label\">Machines running</div>\n      <div class=\"mf-kpi-value\">{{ k.running }} / {{ k.total }}</div>\n      <div class=\"mf-kpi-sub\">{{ k.down_now }} faulted or stopped</div>\n    </div>\n    <div class=\"mf-kpi\" :class=\"yieldClass\">\n      <div class=\"mf-kpi-label\">First-pass yield today</div>\n      <div class=\"mf-kpi-value\">{{ yieldText }}</div>\n      <div class=\"mf-kpi-sub\">{{ k.good }} good \u00b7 {{ k.scrap }} scrap \u00b7 target {{ k.yield_target }}%</div>\n    </div>\n    <div class=\"mf-kpi\" :class=\"{ 'mf-bad': k.downtime_min > 0 }\">\n      <div class=\"mf-kpi-label\">Downtime today</div>\n      <div class=\"mf-kpi-value\">{{ k.downtime_min }} min</div>\n      <div class=\"mf-kpi-sub\">all machines</div>\n    </div>\n    <div class=\"mf-kpi\" :class=\"{ 'mf-bad': k.open_wr > 0 }\">\n      <div class=\"mf-kpi-label\">Open work requests</div>\n      <div class=\"mf-kpi-value\">{{ k.open_wr }}</div>\n      <div class=\"mf-kpi-sub\">waiting for maintenance</div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    k: function () {\n      var p = this.msg && this.msg.payload\n      return (p && typeof p === 'object' && !Array.isArray(p)) ? p : { running: 0, total: 0, down_now: 0, good: 0, scrap: 0, yield_target: 95, downtime_min: 0, open_wr: 0 }\n    },\n    yieldPct: function () {\n      var t = this.k.good + this.k.scrap\n      return t ? Math.round(1000 * this.k.good / t) / 10 : null\n    },\n    yieldText: function () { return this.yieldPct === null ? '\u2013' : this.yieldPct + ' %' },\n    yieldClass: function () {\n      if (this.yieldPct === null) return {}\n      return this.yieldPct >= this.k.yield_target ? { 'mf-good': true } : { 'mf-warn': true }\n    }\n  }\n}\n</script>\n\n<style>\n.mf-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }\n.mf-kpi { border-radius: 8px; padding: 14px 16px; background: rgba(var(--v-theme-on-group-background), 0.06); border-left: 4px solid rgba(var(--v-theme-on-group-background), 0.25); }\n.mf-kpi-label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }\n.mf-kpi-value { font-size: 34px; font-weight: 700; line-height: 1.15; margin: 4px 0; }\n.mf-kpi-sub { font-size: 12px; opacity: .65; }\n.mf-kpi.mf-good { border-left-color: #22c55e; }\n.mf-kpi.mf-warn { border-left-color: #f59e0b; }\n.mf-kpi.mf-bad { border-left-color: #ef4444; }\n</style>",
+    "format": "<template>\n  <div class=\"mf-kpis\">\n    <div class=\"mf-kpi\">\n      <div class=\"mf-kpi-label\">Machines running</div>\n      <div class=\"mf-kpi-value\">{{ k.running }} / {{ k.total }}</div>\n      <div class=\"mf-kpi-sub\">{{ k.down_now }} faulted or stopped</div>\n    </div>\n    <div class=\"mf-kpi\" :class=\"yieldClass\">\n      <div class=\"mf-kpi-label\">First-pass yield today</div>\n      <div class=\"mf-kpi-value\">{{ yieldText }}</div>\n      <div class=\"mf-kpi-sub\">{{ k.good }} good \u00b7 {{ k.scrap }} scrap \u00b7 target {{ k.yield_target }}%</div>\n    </div>\n    <div class=\"mf-kpi\" :class=\"{ 'mf-bad': k.downtime_min > 0 }\">\n      <div class=\"mf-kpi-label\">Downtime today</div>\n      <div class=\"mf-kpi-value\">{{ k.downtime_min }} min</div>\n      <div class=\"mf-kpi-sub\">all machines</div>\n    </div>\n    <div class=\"mf-kpi\" :class=\"{ 'mf-bad': k.open_wr > 0 }\">\n      <div class=\"mf-kpi-label\">Open work requests</div>\n      <div class=\"mf-kpi-value\">{{ k.open_wr }}</div>\n      <div class=\"mf-kpi-sub\">waiting for maintenance</div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    k: function () {\n      var p = this.msg && this.msg.payload\n      return (p && typeof p === 'object' && !Array.isArray(p)) ? p : { running: 0, total: 0, down_now: 0, good: 0, scrap: 0, yield_target: 95, downtime_min: 0, open_wr: 0 }\n    },\n    yieldPct: function () {\n      var t = this.k.good + this.k.scrap\n      return t ? Math.round(1000 * this.k.good / t) / 10 : null\n    },\n    yieldText: function () { return this.yieldPct === null ? '\u2013' : this.yieldPct + ' %' },\n    yieldClass: function () {\n      if (this.yieldPct === null) return {}\n      return this.yieldPct >= this.k.yield_target ? { 'mf-good': true } : { 'mf-warn': true }\n    }\n  }\n}\n</script>\n\n<style>\n.mf-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }\n.mf-kpi { border-radius: 8px; padding: 14px 16px; background: #1f2937; color: #ffffff; border-left: 4px solid #facc15; }\n.mf-kpi-label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }\n.mf-kpi-value { font-size: 34px; font-weight: 700; line-height: 1.15; margin: 4px 0; }\n.mf-kpi-sub { font-size: 12px; opacity: .65; }\n.mf-kpi.mf-good { border-left-color: #22c55e; }\n.mf-kpi.mf-warn { border-left-color: #f59e0b; }\n.mf-kpi.mf-bad { border-left-color: #ef4444; }\n</style>",
     "storeOutMessages": true,
     "passthru": true,
     "resendOnRefresh": true,
@@ -439,7 +383,7 @@
     "id": "kpis_w",
     "z": "tab_over",
     "x": 910,
-    "y": 160,
+    "y": 90,
     "wires": [
       []
     ]
@@ -462,7 +406,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 230,
+    "y": 160,
     "wires": [
       [
         "machines_q"
@@ -482,7 +426,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 230,
+    "y": 160,
     "wires": [
       [
         "machines_p"
@@ -500,7 +444,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 530,
-    "y": 230,
+    "y": 160,
     "wires": [
       [
         "machines_s"
@@ -520,7 +464,7 @@
     "finalize": "",
     "libs": [],
     "x": 700,
-    "y": 230,
+    "y": 160,
     "wires": [
       [
         "machines_w"
@@ -546,7 +490,7 @@
     "id": "machines_w",
     "z": "tab_over",
     "x": 910,
-    "y": 230,
+    "y": 160,
     "wires": [
       []
     ]
@@ -569,7 +513,7 @@
     "className": "",
     "name": "Pop-up alerts",
     "x": 960,
-    "y": 320,
+    "y": 250,
     "wires": []
   },
   {
@@ -590,7 +534,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 320,
+    "y": 250,
     "wires": [
       [
         "toast_q"
@@ -610,7 +554,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 320,
+    "y": 250,
     "wires": [
       [
         "toast_p"
@@ -628,7 +572,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 560,
-    "y": 320,
+    "y": 250,
     "wires": [
       [
         "toast_o"
@@ -648,7 +592,7 @@
     "finalize": "",
     "libs": [],
     "x": 740,
-    "y": 320,
+    "y": 250,
     "wires": [
       [
         "n_toast"
@@ -671,20 +615,6 @@
     "x": 200,
     "y": 40,
     "wires": []
-  },
-  {
-    "id": "n_head",
-    "type": "ui-group",
-    "name": "Plant",
-    "page": "pg_ana",
-    "width": 12,
-    "height": 1,
-    "order": 0,
-    "showTitle": false,
-    "className": "",
-    "visible": true,
-    "disabled": false,
-    "groupType": "default"
   },
   {
     "id": "n_stats",
@@ -827,113 +757,6 @@
     "groupType": "default"
   },
   {
-    "id": "plant_a_i",
-    "type": "inject",
-    "z": "tab_ana",
-    "name": "Every 30 s",
-    "props": [
-      {
-        "p": "payload"
-      }
-    ],
-    "repeat": "30",
-    "crontab": "",
-    "once": true,
-    "onceDelay": "1",
-    "topic": "",
-    "payload": "",
-    "payloadType": "date",
-    "x": 150,
-    "y": 90,
-    "wires": [
-      [
-        "plant_a_q"
-      ]
-    ]
-  },
-  {
-    "id": "plant_a_q",
-    "type": "function",
-    "z": "tab_ana",
-    "name": "Query: plant_a",
-    "func": "// Plant name shown at the top of the dashboard (Settings page: plant_name)\nmsg.query = `SELECT value #>> '{}' AS name FROM mf.settings WHERE key = 'plant_name'`;\nmsg.params = [];\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 340,
-    "y": 90,
-    "wires": [
-      [
-        "plant_a_p"
-      ]
-    ]
-  },
-  {
-    "id": "plant_a_p",
-    "type": "postgresql",
-    "z": "tab_ana",
-    "name": "Run SQL",
-    "query": "",
-    "postgreSQLConfig": "pg_cfg",
-    "split": false,
-    "rowsPerMsg": 1,
-    "outputs": 1,
-    "x": 530,
-    "y": 90,
-    "wires": [
-      [
-        "plant_a_s"
-      ]
-    ]
-  },
-  {
-    "id": "plant_a_s",
-    "type": "function",
-    "z": "tab_ana",
-    "name": "Shape for the screen",
-    "func": "msg.payload = (msg.payload && msg.payload[0] && msg.payload[0].name) || 'Plant overview';\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 700,
-    "y": 90,
-    "wires": [
-      [
-        "plant_a_w"
-      ]
-    ]
-  },
-  {
-    "type": "ui-template",
-    "group": "n_head",
-    "page": "",
-    "ui": "",
-    "name": "Brand header",
-    "order": 1,
-    "width": 12,
-    "height": 0,
-    "head": "",
-    "format": "<template>\n  <div class=\"mf-head\">\n    <svg class=\"mf-logo\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Manufaction\">\n      <rect width=\"48\" height=\"48\" rx=\"6\" fill=\"#1f2937\" />\n      <path d=\"M10 39V13l14 15 14-15v26M24 8v15\" fill=\"none\" stroke=\"#facc15\" stroke-width=\"3.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" />\n      <circle cx=\"10\" cy=\"39\" r=\"3.4\" fill=\"#ffffff\" /><circle cx=\"38\" cy=\"39\" r=\"3.4\" fill=\"#ffffff\" /><circle cx=\"24\" cy=\"8\" r=\"3.4\" fill=\"#ffffff\" />\n      <circle cx=\"24\" cy=\"28\" r=\"5.4\" fill=\"#facc15\" /><circle cx=\"24\" cy=\"28\" r=\"2\" fill=\"#1f2937\" />\n    </svg>\n    <div class=\"mf-plant\">{{ plant }}</div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    plant: function () {\n      var p = this.msg && this.msg.payload\n      return typeof p === 'string' && p ? p : 'Plant overview'\n    }\n  }\n}\n</script>\n\n<style>\n.mf-head { display: flex; align-items: center; gap: 14px; }\n.mf-logo { width: 40px; height: 40px; flex: none; }\n.mf-plant { font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif; font-size: 26px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }\n</style>",
-    "storeOutMessages": true,
-    "passthru": true,
-    "resendOnRefresh": true,
-    "templateScope": "local",
-    "className": "",
-    "id": "plant_a_w",
-    "z": "tab_ana",
-    "x": 910,
-    "y": 90,
-    "wires": [
-      []
-    ]
-  },
-  {
     "id": "stats_i",
     "type": "inject",
     "z": "tab_ana",
@@ -951,7 +774,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 160,
+    "y": 90,
     "wires": [
       [
         "stats_q"
@@ -971,7 +794,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 160,
+    "y": 90,
     "wires": [
       [
         "stats_p"
@@ -989,7 +812,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 530,
-    "y": 160,
+    "y": 90,
     "wires": [
       [
         "stats_s"
@@ -1009,7 +832,7 @@
     "finalize": "",
     "libs": [],
     "x": 700,
-    "y": 160,
+    "y": 90,
     "wires": [
       [
         "stats_w"
@@ -1026,7 +849,7 @@
     "width": 12,
     "height": 0,
     "head": "",
-    "format": "<template>\n  <div class=\"mf-stats\">\n    <div class=\"mf-stat\">\n      <div class=\"mf-stat-label\">Good parts today</div>\n      <div class=\"mf-stat-value\">{{ s.good }}</div>\n      <div class=\"mf-stat-sub\">{{ s.orders_done }} orders completed</div>\n    </div>\n    <div class=\"mf-stat\" :class=\"{ 'mf-warn': s.scrap_pct > 5 }\">\n      <div class=\"mf-stat-label\">Scrap rate</div>\n      <div class=\"mf-stat-value\">{{ s.scrap_pct }} %</div>\n      <div class=\"mf-stat-sub\">{{ s.scrap }} scrapped parts</div>\n    </div>\n    <div class=\"mf-stat\">\n      <div class=\"mf-stat-label\">Avg repair time</div>\n      <div class=\"mf-stat-value\">{{ s.mttr_min === null ? '\u2013' : s.mttr_min + ' min' }}</div>\n      <div class=\"mf-stat-sub\">{{ s.stops }} stops today</div>\n    </div>\n    <div class=\"mf-stat\" :class=\"{ 'mf-bad': s.longest_min > 15 }\">\n      <div class=\"mf-stat-label\">Longest stop</div>\n      <div class=\"mf-stat-value\">{{ s.longest_min }} min</div>\n      <div class=\"mf-stat-sub\">{{ s.longest_machine || 'none today' }}</div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    s: function () {\n      var p = this.msg && this.msg.payload\n      return (p && typeof p === 'object' && !Array.isArray(p)) ? p : { good: 0, scrap: 0, scrap_pct: 0, orders_done: 0, mttr_min: null, stops: 0, longest_min: 0, longest_machine: null }\n    }\n  }\n}\n</script>\n\n<style>\n.mf-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }\n.mf-stat { border-radius: 8px; padding: 12px 16px; background: rgba(var(--v-theme-on-group-background), 0.06); border-left: 4px solid #facc15; }\n.mf-stat-label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }\n.mf-stat-value { font-size: 30px; font-weight: 700; line-height: 1.15; margin: 4px 0; }\n.mf-stat-sub { font-size: 12px; opacity: .65; }\n.mf-stat.mf-warn { border-left-color: #f59e0b; }\n.mf-stat.mf-bad { border-left-color: #ef4444; }\n</style>",
+    "format": "<template>\n  <div class=\"mf-stats\">\n    <div class=\"mf-stat\">\n      <div class=\"mf-stat-label\">Good parts today</div>\n      <div class=\"mf-stat-value\">{{ s.good }}</div>\n      <div class=\"mf-stat-sub\">{{ s.orders_done }} orders completed</div>\n    </div>\n    <div class=\"mf-stat\" :class=\"{ 'mf-warn': s.scrap_pct > 5 }\">\n      <div class=\"mf-stat-label\">Scrap rate</div>\n      <div class=\"mf-stat-value\">{{ s.scrap_pct }} %</div>\n      <div class=\"mf-stat-sub\">{{ s.scrap }} scrapped parts</div>\n    </div>\n    <div class=\"mf-stat\">\n      <div class=\"mf-stat-label\">Avg repair time</div>\n      <div class=\"mf-stat-value\">{{ s.mttr_min === null ? '\u2013' : s.mttr_min + ' min' }}</div>\n      <div class=\"mf-stat-sub\">{{ s.stops }} stops today</div>\n    </div>\n    <div class=\"mf-stat\" :class=\"{ 'mf-bad': s.longest_min > 15 }\">\n      <div class=\"mf-stat-label\">Longest stop</div>\n      <div class=\"mf-stat-value\">{{ s.longest_min }} min</div>\n      <div class=\"mf-stat-sub\">{{ s.longest_machine || 'none today' }}</div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    s: function () {\n      var p = this.msg && this.msg.payload\n      return (p && typeof p === 'object' && !Array.isArray(p)) ? p : { good: 0, scrap: 0, scrap_pct: 0, orders_done: 0, mttr_min: null, stops: 0, longest_min: 0, longest_machine: null }\n    }\n  }\n}\n</script>\n\n<style>\n.mf-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }\n.mf-stat { border-radius: 8px; padding: 12px 16px; background: #1f2937; color: #ffffff; border-left: 4px solid #facc15; }\n.mf-stat-label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }\n.mf-stat-value { font-size: 30px; font-weight: 700; line-height: 1.15; margin: 4px 0; }\n.mf-stat-sub { font-size: 12px; opacity: .65; }\n.mf-stat.mf-warn { border-left-color: #f59e0b; }\n.mf-stat.mf-bad { border-left-color: #ef4444; }\n</style>",
     "storeOutMessages": true,
     "passthru": true,
     "resendOnRefresh": true,
@@ -1035,7 +858,7 @@
     "id": "stats_w",
     "z": "tab_ana",
     "x": 910,
-    "y": 160,
+    "y": 90,
     "wires": [
       []
     ]
@@ -1058,7 +881,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 230,
+    "y": 160,
     "wires": [
       [
         "alerts_q"
@@ -1078,7 +901,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 230,
+    "y": 160,
     "wires": [
       [
         "alerts_p"
@@ -1096,7 +919,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 530,
-    "y": 230,
+    "y": 160,
     "wires": [
       [
         "alerts_s"
@@ -1116,7 +939,7 @@
     "finalize": "",
     "libs": [],
     "x": 700,
-    "y": 230,
+    "y": 160,
     "wires": [
       [
         "alerts_w"
@@ -1142,7 +965,7 @@
     "id": "alerts_w",
     "z": "tab_ana",
     "x": 910,
-    "y": 230,
+    "y": 160,
     "wires": [
       []
     ]
@@ -1165,7 +988,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 300,
+    "y": 230,
     "wires": [
       [
         "chart_output_q"
@@ -1185,7 +1008,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 300,
+    "y": 230,
     "wires": [
       [
         "chart_output_p"
@@ -1203,7 +1026,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 530,
-    "y": 300,
+    "y": 230,
     "wires": [
       [
         "chart_output_s"
@@ -1223,7 +1046,7 @@
     "finalize": "",
     "libs": [],
     "x": 700,
-    "y": 300,
+    "y": 230,
     "wires": [
       [
         "chart_output_w"
@@ -1280,7 +1103,7 @@
     "id": "chart_output_w",
     "z": "tab_ana",
     "x": 910,
-    "y": 300,
+    "y": 230,
     "wires": [
       []
     ]
@@ -1303,7 +1126,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 370,
+    "y": 300,
     "wires": [
       [
         "chart_reasons_q"
@@ -1323,7 +1146,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 370,
+    "y": 300,
     "wires": [
       [
         "chart_reasons_p"
@@ -1341,7 +1164,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 530,
-    "y": 370,
+    "y": 300,
     "wires": [
       [
         "chart_reasons_s"
@@ -1361,7 +1184,7 @@
     "finalize": "",
     "libs": [],
     "x": 700,
-    "y": 370,
+    "y": 300,
     "wires": [
       [
         "chart_reasons_w"
@@ -1417,7 +1240,7 @@
     "id": "chart_reasons_w",
     "z": "tab_ana",
     "x": 910,
-    "y": 370,
+    "y": 300,
     "wires": [
       []
     ]
@@ -1440,7 +1263,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 440,
+    "y": 370,
     "wires": [
       [
         "chart_yield_q"
@@ -1460,7 +1283,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 440,
+    "y": 370,
     "wires": [
       [
         "chart_yield_p"
@@ -1478,7 +1301,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 530,
-    "y": 440,
+    "y": 370,
     "wires": [
       [
         "chart_yield_s"
@@ -1498,7 +1321,7 @@
     "finalize": "",
     "libs": [],
     "x": 700,
-    "y": 440,
+    "y": 370,
     "wires": [
       [
         "chart_yield_w"
@@ -1554,7 +1377,7 @@
     "id": "chart_yield_w",
     "z": "tab_ana",
     "x": 910,
-    "y": 440,
+    "y": 370,
     "wires": [
       []
     ]
@@ -1577,7 +1400,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 510,
+    "y": 440,
     "wires": [
       [
         "downtime_q"
@@ -1597,7 +1420,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 510,
+    "y": 440,
     "wires": [
       [
         "downtime_p"
@@ -1615,7 +1438,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 530,
-    "y": 510,
+    "y": 440,
     "wires": [
       [
         "downtime_s"
@@ -1635,7 +1458,7 @@
     "finalize": "",
     "libs": [],
     "x": 700,
-    "y": 510,
+    "y": 440,
     "wires": [
       [
         "downtime_w"
@@ -1661,7 +1484,7 @@
     "id": "downtime_w",
     "z": "tab_ana",
     "x": 910,
-    "y": 510,
+    "y": 440,
     "wires": [
       []
     ]
@@ -1684,7 +1507,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 580,
+    "y": 510,
     "wires": [
       [
         "orders_q"
@@ -1704,7 +1527,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 580,
+    "y": 510,
     "wires": [
       [
         "orders_p"
@@ -1722,7 +1545,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 530,
-    "y": 580,
+    "y": 510,
     "wires": [
       [
         "orders_s"
@@ -1742,7 +1565,7 @@
     "finalize": "",
     "libs": [],
     "x": 700,
-    "y": 580,
+    "y": 510,
     "wires": [
       [
         "orders_w"
@@ -1771,7 +1594,7 @@
     "id": "orders_w",
     "z": "tab_ana",
     "x": 910,
-    "y": 580,
+    "y": 510,
     "wires": [
       []
     ]
@@ -1794,7 +1617,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 650,
+    "y": 580,
     "wires": [
       [
         "workrequests_q"
@@ -1814,7 +1637,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 650,
+    "y": 580,
     "wires": [
       [
         "workrequests_p"
@@ -1832,7 +1655,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 530,
-    "y": 650,
+    "y": 580,
     "wires": [
       [
         "workrequests_s"
@@ -1852,7 +1675,7 @@
     "finalize": "",
     "libs": [],
     "x": 700,
-    "y": 650,
+    "y": 580,
     "wires": [
       [
         "workrequests_w"
@@ -1881,7 +1704,7 @@
     "id": "workrequests_w",
     "z": "tab_ana",
     "x": 910,
-    "y": 650,
+    "y": 580,
     "wires": [
       []
     ]
@@ -1904,7 +1727,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 720,
+    "y": 650,
     "wires": [
       [
         "receipts_q"
@@ -1924,7 +1747,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 720,
+    "y": 650,
     "wires": [
       [
         "receipts_p"
@@ -1942,7 +1765,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 530,
-    "y": 720,
+    "y": 650,
     "wires": [
       [
         "receipts_s"
@@ -1962,7 +1785,7 @@
     "finalize": "",
     "libs": [],
     "x": 700,
-    "y": 720,
+    "y": 650,
     "wires": [
       [
         "receipts_w"
@@ -1991,7 +1814,7 @@
     "id": "receipts_w",
     "z": "tab_ana",
     "x": 910,
-    "y": 720,
+    "y": 650,
     "wires": [
       []
     ]
@@ -2014,7 +1837,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 150,
-    "y": 790,
+    "y": 720,
     "wires": [
       [
         "feed_q"
@@ -2034,7 +1857,7 @@
     "finalize": "",
     "libs": [],
     "x": 340,
-    "y": 790,
+    "y": 720,
     "wires": [
       [
         "feed_p"
@@ -2052,7 +1875,7 @@
     "rowsPerMsg": 1,
     "outputs": 1,
     "x": 530,
-    "y": 790,
+    "y": 720,
     "wires": [
       [
         "feed_s"
@@ -2072,7 +1895,7 @@
     "finalize": "",
     "libs": [],
     "x": 700,
-    "y": 790,
+    "y": 720,
     "wires": [
       [
         "feed_w"
@@ -2101,7 +1924,7 @@
     "id": "feed_w",
     "z": "tab_ana",
     "x": 910,
-    "y": 790,
+    "y": 720,
     "wires": [
       []
     ]

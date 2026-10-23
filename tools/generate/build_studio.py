@@ -48,6 +48,14 @@ page("pg_over", "Plant overview", "/overview", "factory", 1)
 page("pg_ana", "Analytics", "/analytics", "chart-line", 2)
 page("pg_admin", "Settings", "/settings", "settings", 3)
 
+# ---------------------------------------------------------------- dashboard chrome (all pages)
+add({"id": "chrome_bar", "type": "ui-template", "z": "tab_chrome", "group": "", "page": "", "ui": "ui_base", "name": "Top banner: logo + Manufaction UI",
+     "order": 0, "width": 0, "height": 0, "head": "", "format": rd("tpl_topbar.vue"), "storeOutMessages": False, "passthru": False,
+     "resendOnRefresh": False, "templateScope": "widget:ui", "className": "", "x": 260, "y": 120, "wires": [[]]})
+add({"id": "chrome_css", "type": "ui-template", "z": "tab_chrome", "group": "", "page": "", "ui": "ui_base", "name": "Site style (colours, side menu, panel titles)",
+     "order": 0, "width": 0, "height": 0, "head": "", "format": rd("site_style.css"), "storeOutMessages": False, "passthru": False,
+     "resendOnRefresh": False, "templateScope": "site:style", "className": "", "x": 260, "y": 180, "wires": [[]]})
+
 # ---------------------------------------------------------------- shared look
 CSS_NOTE = ""
 POLL = 3
@@ -74,16 +82,18 @@ def table(group_id, name, order, width=12):
             "passthru": False, "autocols": True, "showSearch": True, "deselect": True, "selectionType": "none", "columns": [],
             "mobileBreakpoint": "sm", "mobileBreakpointType": "defaults", "action": "replace", "className": ""}
 
+tab("tab_chrome", "Look and feel", "Site-wide look: the blue top banner and the dark side menu / panel titles. Edit the colours at the top of the Site style node.")
+comment("c_chrome", "tab_chrome", "Look and feel (every page)", "Top banner = template with scope 'UI'. Site style = CSS for the whole dashboard. Change --mf-blue, --mf-dark or --mf-yellow at the top of the CSS.")
+
 # ================================================================ TAB 1: Plant overview
 tab("tab_over", "Plant overview", "The Plant overview page: headline numbers and one card per machine. Each row of nodes is one panel: a timer asks the "
     "database a question, a function shapes the answer, and a widget draws it. To change a panel, edit its SQL (the "
     "'Query' function) or its look (the template). Nothing here can change production data: this instance logs in to "
     "the database with a restricted user.")
 comment("c_over", "tab_over", "Plant overview: one row = one panel", "Timer -> Query -> Run SQL -> Shape -> Widget.\nDouble-click any node to change it. Deploy (top right) makes the change live for everyone.")
-for gid, nm, w, o in [("g_head", "Plant", 12, 0), ("g_kpi", "Today", 12, 1), ("g_mach", "Machines", 12, 2)]:
+for gid, nm, w, o in [("g_kpi", "Today", 12, 1), ("g_mach", "Machines", 12, 2)]:
     group(gid, "pg_over", nm, w, o, show=False)
 y = 90
-view("tab_over", "plant", tpl("g_head", "Brand header", rd("tpl_header.vue"), 1), y, every=30); y += 70
 view("tab_over", "kpis", tpl("g_kpi", "KPI tiles", rd("tpl_kpis.vue"), 1), y); y += 70
 view("tab_over", "machines", tpl("g_mach", "Machine cards", rd("tpl_machines.vue"), 1), y); y += 90
 
@@ -100,7 +110,7 @@ fn("toast_o", "tab_over", "One pop-up per notice", rd("t_toast_out.js"), 740, y,
 tab("tab_ana", "Analytics", "The Analytics page: charts, supporting numbers and the detail tables. Same pattern as the overview: "
     "timer -> Query -> Run SQL -> Shape -> widget. Chart rows send a list of {x, y, series} points; tables show any rows.")
 comment("c_ana", "tab_ana", "Analytics: charts and detail tables", "Charts want points shaped as {x, y, series}. The 'Shape' function in each row does that. Change the SQL, deploy, done.")
-for gid, nm, w, o, show in [("n_head", "Plant", 12, 0, False), ("n_stats", "Today in numbers", 12, 1, False), ("n_alert", "Alerts", 12, 2, False),
+for gid, nm, w, o, show in [("n_stats", "Today in numbers", 12, 1, False), ("n_alert", "Alerts", 12, 2, False),
                             ("n_out", "Output per hour (last 12 h)", 6, 3, True), ("n_rsn", "Downtime by reason today (minutes)", 6, 4, True),
                             ("n_yld", "First-pass yield by machine today (%)", 6, 5, True), ("n_dt", "Downtime by machine today", 6, 6, True),
                             ("n_ord", "Production orders", 6, 7, True), ("n_wr", "Maintenance work requests", 6, 8, True),
@@ -117,7 +127,6 @@ def chart(group_id, name, stacked, colors, ymax=""):
             "gridColorDefault": True, "width": 6, "height": 5, "className": "", "interpolation": "linear"}
 
 y = 90
-view("tab_ana", "plant_a", tpl("n_head", "Brand header", rd("tpl_header.vue"), 1), y, every=30); y += 70
 view("tab_ana", "stats", tpl("n_stats", "Number tiles", rd("tpl_stats.vue"), 1), y); y += 70
 view("tab_ana", "alerts", tpl("n_alert", "Alert banner", rd("tpl_alerts.vue"), 1), y); y += 70
 view("tab_ana", "chart_output", chart("n_out", "Output per hour", True, ["#facc15", "#dc2626"]), y); y += 70

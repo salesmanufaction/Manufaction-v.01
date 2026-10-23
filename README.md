@@ -142,7 +142,7 @@ No Docker needed for the logic tests: a PostgreSQL with `001_schema.sql`, `002_s
 
 ```bash
 node tools/flowsim/test_core.js      # 63 checks of the CORE flows on real SQL
-node tools/flowsim/test_studio.js    # 50 checks of the STUDIO flows, as the restricted user
+node tools/flowsim/test_studio.js    # 48 checks of the STUDIO flows, as the restricted user
 DASH=<path to node-red-dashboard> node tools/lint_flows.js core/data/flows.json studio/data/flows.json
 ```
 

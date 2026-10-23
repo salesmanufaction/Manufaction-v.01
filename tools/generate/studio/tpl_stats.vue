@@ -36,7 +36,7 @@ export default {
 
 <style>
 .mf-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
-.mf-stat { border-radius: 8px; padding: 12px 16px; background: rgba(var(--v-theme-on-group-background), 0.06); border-left: 4px solid #facc15; }
+.mf-stat { border-radius: 8px; padding: 12px 16px; background: #1f2937; color: #ffffff; border-left: 4px solid #facc15; }
 .mf-stat-label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }
 .mf-stat-value { font-size: 30px; font-weight: 700; line-height: 1.15; margin: 4px 0; }
 .mf-stat-sub { font-size: 12px; opacity: .65; }

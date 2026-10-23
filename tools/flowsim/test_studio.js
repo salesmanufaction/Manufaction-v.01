@@ -53,7 +53,7 @@ const ok = (c, name, extra) => { if (c) { pass++; console.log('  PASS ', name); 
     ok(out('reasons_w').payload.length === 9, 'fault catalogue has 9 codes');
 
     console.log('analytics page');
-    for (const k of ['plant_a', 'stats', 'chart_output', 'chart_reasons', 'chart_yield']) {
+    for (const k of ['stats', 'chart_output', 'chart_reasons', 'chart_yield']) {
         await e.fire(k + '_i');
         ok(!!out(k + '_w'), `analytics panel "${k}" produced output`, e.warnings.slice(-1));
     }
@@ -67,7 +67,6 @@ const ok = (c, name, extra) => { if (c) { pass++; console.log('  PASS ', name); 
     ok(cr.length === 1 && cr[0].x === 'TOOL_BREAK' && cr[0].y >= 4.9, 'downtime chart groups by reason', cr);
     const cy = out('chart_yield_w').payload;
     ok(cy.length === 1 && cy[0].x === 'PRESS-001' && cy[0].y === 80, 'yield chart: PRESS-001 at 80%', cy);
-    ok(out('plant_a_w').payload === 'Manufaction Demo Factory · simulated plant, synthetic data' || typeof out('plant_a_w').payload === 'string', 'plant name reaches the Analytics header');
 
     console.log('pop-up alerts');
     await e.fire('toast_i');                       // first run: remembers position, shows nothing

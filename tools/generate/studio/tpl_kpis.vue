@@ -45,8 +45,8 @@ export default {
 
 <style>
 .mf-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
-.mf-kpi { border-radius: 8px; padding: 14px 16px; background: rgba(var(--v-theme-on-group-background), 0.06); border-left: 4px solid rgba(var(--v-theme-on-group-background), 0.25); }
-.mf-kpi-label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }
+.mf-kpi { border-radius: 8px; padding: 14px 16px; background: #1f2937; color: #ffffff; border-left: 4px solid #facc15; }
+.mf-kpi-label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
 .mf-kpi-value { font-size: 34px; font-weight: 700; line-height: 1.15; margin: 4px 0; }
 .mf-kpi-sub { font-size: 12px; opacity: .65; }
 .mf-kpi.mf-good { border-left-color: #22c55e; }

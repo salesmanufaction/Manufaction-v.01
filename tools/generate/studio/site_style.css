@@ -1,0 +1,29 @@
+/* Manufaction dashboard chrome. Site-wide stylesheet (ui-template, scope "site:style").
+   Change the two colours here; everything else follows. */
+:root { --mf-top: 48px; --mf-blue: #1e40af; --mf-dark: #1f2937; --mf-yellow: #facc15; }
+
+/* Top banner: blue, white letters, above the page-name bar */
+.mf-topbar { position: fixed; top: 0; left: 0; right: 0; height: var(--mf-top); z-index: 2100; display: flex; align-items: center; gap: 12px;
+  padding: 0 16px; background: var(--mf-blue); color: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
+.mf-topbar-logo { width: 30px; height: 30px; flex: none; }
+.mf-topbar-title { font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif; font-size: 24px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #ffffff; }
+
+/* Push the page-name bar, side menu and content down by the banner height */
+.nrdb-app .v-app-bar { top: var(--mf-top) !important; }
+.nrdb-app .v-main { padding-top: calc(var(--v-layout-top, 64px) + var(--mf-top)) !important; }
+.nrdb-app .v-navigation-drawer { top: calc(var(--mf-bar, 64px) + var(--mf-top)) !important; height: calc(100% - var(--mf-bar, 64px) - var(--mf-top)) !important; }
+
+/* Dark side menu with a yellow marker on the current page */
+.nrdb-app .v-navigation-drawer { background: var(--mf-dark) !important; color: #e5e7eb !important; }
+.nrdb-app .v-navigation-drawer .v-list-item { color: #e5e7eb !important; border-left: 4px solid transparent; }
+.nrdb-app .v-navigation-drawer .v-list-item .v-icon { color: #e5e7eb !important; opacity: 1 !important; }
+.nrdb-app .v-navigation-drawer .v-list-item--active { background: rgba(250, 204, 21, .14) !important; border-left-color: var(--mf-yellow); color: var(--mf-yellow) !important; }
+.nrdb-app .v-navigation-drawer .v-list-item--active .v-icon { color: var(--mf-yellow) !important; }
+
+/* Panels: dark title bar with a yellow underline */
+.nrdb-ui-group > .v-card > .v-card-item { background: var(--mf-dark); color: #ffffff; padding: 8px 16px; border-bottom: 3px solid var(--mf-yellow);
+  border-radius: var(--group-border-radius) var(--group-border-radius) 0 0; }
+.nrdb-ui-group > .v-card > .v-card-item .v-card-title { color: #ffffff; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; }
+
+/* Tables: dark header row */
+.nrdb-ui-group .v-table thead th, .nrdb-ui-group .v-data-table-header th { background: var(--mf-dark) !important; color: #ffffff !important; }
