@@ -4,6 +4,8 @@
    If a Node-RED upgrade renames a variable, the plain selectors below still apply. */
 :root {
     --red-ui-header-background: #1f2937;
+    --red-ui-header-menu-color: #ffffff;           /* user button, burger menu, header icons */
+    --red-ui-workspace-button-color: #ffffff;
     --red-ui-deploy-button-background: #facc15;
     --red-ui-deploy-button-background-hover: #fde047;
     --red-ui-deploy-button-color: #1f2937;
@@ -20,7 +22,7 @@
 #red-ui-header-button-deploy span { color: #1f2937 !important; }
 
 /* Dropdown menus (main menu, user menu) open on a white panel: keep their text dark.
-   The header text colour is left at Node-RED's default so it stays light on graphite. */
+   (Header text is white via the variable above; the dropdown is forced dark here.) */
 .red-ui-menu.red-ui-menu-dropdown a,
 .red-ui-menu.red-ui-menu-dropdown .red-ui-menu-label,
 .red-ui-menu.red-ui-menu-dropdown .red-ui-menu-label span,
@@ -42,3 +44,17 @@
     border: 0;
 }
 .red-ui-login-image img, #red-ui-login-image { width: 96px; height: 96px; }
+
+/* Flow tab strip sits on the graphite bar: inactive tab names light, the active tab dark on white */
+#red-ui-workspace-tabs .red-ui-tab a,
+#red-ui-workspace-tabs .red-ui-tab .red-ui-tab-label,
+#red-ui-workspace-tabs .red-ui-tab span { color: #e5e7eb !important; }
+#red-ui-workspace-tabs .red-ui-tab.active a,
+#red-ui-workspace-tabs .red-ui-tab.active .red-ui-tab-label,
+#red-ui-workspace-tabs .red-ui-tab.active span { color: #1f2937 !important; }
+#red-ui-workspace-tabs .red-ui-tab-link-buttons a,
+#red-ui-workspace-tabs .red-ui-tab-link-buttons i,
+#red-ui-workspace-tabs .red-ui-tabs-menu a,
+#red-ui-workspace-tabs .red-ui-tabs-menu i { color: #ffffff !important; }
+#red-ui-header-button-user, #red-ui-header-button-user i,
+#red-ui-header-button-sidemenu, #red-ui-header-button-sidemenu i { color: #ffffff !important; }
