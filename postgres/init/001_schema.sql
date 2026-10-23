@@ -153,14 +153,19 @@ CREATE INDEX maintenance_requests_open ON maintenance_requests (opened_at DESC);
 CREATE TABLE notifications (
     id                BIGSERIAL PRIMARY KEY,
     kind              VARCHAR(40) NOT NULL
-                      CHECK (kind IN ('downtime_alert','maintenance_dispatched','recovered')),
+                      CHECK (kind IN ('downtime_alert','maintenance_dispatched','recovered','test')),
     severity          VARCHAR(20) NOT NULL CHECK (severity IN ('critical','info','success')),
     asset_id          UUID REFERENCES assets(id),
     downtime_event_id BIGINT REFERENCES downtime_events(id) ON DELETE CASCADE,
     title             VARCHAR(200) NOT NULL,
     message           VARCHAR(500),
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    seeded            BOOLEAN NOT NULL DEFAULT FALSE
+    seeded            BOOLEAN NOT NULL DEFAULT FALSE,
+    -- outbound delivery (webhook), driven by Node-RED tab 05; see mf.pending_deliveries()
+    delivered_at      TIMESTAMPTZ,
+    delivery_attempts INTEGER NOT NULL DEFAULT 0,
+    last_attempt_at   TIMESTAMPTZ,
+    last_error        VARCHAR(200)
 );
 CREATE INDEX notifications_time ON notifications (created_at DESC, id DESC);
 

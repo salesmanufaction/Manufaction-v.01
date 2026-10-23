@@ -403,7 +403,8 @@ BEGIN
         'notifications', COALESCE((
             SELECT jsonb_agg(jsonb_build_object(
                        'id', n.id, 'kind', n.kind, 'severity', n.severity, 'asset', n.asset_code,
-                       'title', n.title, 'message', n.message, 'created_at', n.created_at)
+                       'title', n.title, 'message', n.message, 'created_at', n.created_at,
+                       'delivered', n.delivered_at IS NOT NULL)
                      ORDER BY n.created_at DESC, n.id DESC)
               FROM (SELECT n.*, a.asset_code FROM mf.notifications n
                       LEFT JOIN mf.assets a ON a.id = n.asset_id
@@ -520,3 +521,57 @@ CREATE TRIGGER downtime_open_trg AFTER INSERT ON mf.downtime_events
 CREATE TRIGGER downtime_close_trg AFTER UPDATE OF ended_at ON mf.downtime_events
     FOR EACH ROW WHEN (OLD.ended_at IS NULL AND NEW.ended_at IS NOT NULL AND NOT NEW.seeded)
     EXECUTE FUNCTION mf.on_downtime_close();
+
+-- ============================================================== outbound notifications
+-- Node-RED tab 05 polls mf.pending_deliveries(), POSTs each row to MF_NOTIFY_WEBHOOK_URL and
+-- reports the outcome through mf.mark_delivery(). Failed sends are retried (max 5, 15 s apart);
+-- anything older than 15 minutes is dropped so switching delivery on never replays old alerts.
+-- A fault produces one message ("FAULT ... work request ..."), a stop without a work request
+-- one message, and a recovery one message.
+CREATE OR REPLACE FUNCTION mf.pending_deliveries(p_limit INT DEFAULT 10) RETURNS TABLE (
+    id BIGINT, kind TEXT, severity TEXT, site_code TEXT, asset_code TEXT, title TEXT,
+    text TEXT, work_request TEXT, reason_code TEXT, created_at TIMESTAMPTZ)
+LANGUAGE sql STABLE AS $$
+    SELECT n.id, n.kind::text, n.severity::text, s.site_code::text, a.asset_code::text, n.title::text,
+           CASE n.kind
+             WHEN 'maintenance_dispatched' THEN
+                  'FAULT: ' || a.asset_code || ' - ' || COALESCE(NULLIF(r.description, ''), 'no reason reported')
+                  || '. Work request ' || r.request_number || ' sent to ' || r.assigned_to || '.'
+             WHEN 'downtime_alert' THEN
+                  'STOPPED: ' || a.asset_code || ' has stopped (' || COALESCE(n.message, 'no reason reported') || ').'
+             WHEN 'recovered' THEN
+                  'BACK IN PRODUCTION: ' || a.asset_code || ' - ' || COALESCE(n.message, '') || '.'
+             ELSE 'TEST: Manufaction notifications are working.'
+           END,
+           r.request_number::text, r.reason_code::text, n.created_at
+      FROM mf.notifications n
+      LEFT JOIN mf.assets a ON a.id = n.asset_id
+      LEFT JOIN mf.sites  s ON s.id = a.site_id
+      LEFT JOIN mf.maintenance_requests r ON r.downtime_event_id = n.downtime_event_id
+     WHERE NOT n.seeded
+       AND n.delivered_at IS NULL
+       AND n.delivery_attempts < 5
+       AND n.created_at > NOW() - INTERVAL '15 minutes'
+       AND (n.last_attempt_at IS NULL OR n.last_attempt_at < NOW() - INTERVAL '15 seconds')
+       AND NOT (n.kind = 'downtime_alert' AND r.id IS NOT NULL)   -- the work-request message covers it
+     ORDER BY n.created_at, n.id
+     LIMIT p_limit
+$$;
+
+CREATE OR REPLACE FUNCTION mf.mark_delivery(p_id BIGINT, p_ok BOOLEAN, p_error TEXT DEFAULT NULL)
+RETURNS VOID LANGUAGE sql AS $$
+    UPDATE mf.notifications
+       SET delivered_at      = CASE WHEN p_ok THEN NOW() ELSE delivered_at END,
+           delivery_attempts = delivery_attempts + 1,
+           last_attempt_at   = NOW(),
+           last_error        = CASE WHEN p_ok THEN NULL ELSE left(COALESCE(p_error, 'failed'), 200) END
+     WHERE id = p_id AND delivered_at IS NULL
+$$;
+
+-- For ./scripts/notify_test.sh
+CREATE OR REPLACE FUNCTION mf.send_test_notification() RETURNS BIGINT
+LANGUAGE sql AS $$
+    INSERT INTO mf.notifications (kind, severity, title, message)
+    VALUES ('test', 'info', 'Test notification', 'Manufaction notifications are working.')
+    RETURNING id
+$$;

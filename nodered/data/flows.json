@@ -291,7 +291,7 @@
     "id": "c_api",
     "type": "comment",
     "z": "tab_api",
-    "name": "REST API v1  \u2014  http in -> prepare -> mf.* SQL -> respond",
+    "name": "REST API v1  —  http in -> prepare -> mf.* SQL -> respond",
     "info": "Prepare functions have 3 outputs: [1] SQL query, [2] immediate HTTP response, [3] MQTT publish.",
     "x": 300,
     "y": 40,
@@ -1340,6 +1340,207 @@
     "wires": [
       [
         "erp_resp"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "tab_notify",
+    "type": "tab",
+    "label": "05 Notifications",
+    "disabled": false,
+    "info": "Delivers alerts to a webhook (Slack, Teams, Discord, ntfy, Zapier/Make...). Off until MF_NOTIFY_WEBHOOK_URL is set in .env. Reads the queue in mf.pending_deliveries() and reports results through mf.mark_delivery()."
+  },
+  {
+    "id": "c_notify",
+    "type": "comment",
+    "z": "tab_notify",
+    "name": "alerts -> webhook (set MF_NOTIFY_WEBHOOK_URL in .env to turn on)",
+    "info": "Formats via MF_NOTIFY_FORMAT: json (default) | slack | discord | text (plain body, works with ntfy). MF_NOTIFY_BEARER_TOKEN adds an Authorization header. The webhook URL is a secret: keep it in .env only.",
+    "x": 330,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "notify_tick",
+    "type": "inject",
+    "z": "tab_notify",
+    "name": "every 5s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "5",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "20",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 130,
+    "y": 100,
+    "wires": [
+      [
+        "notify_q"
+      ]
+    ]
+  },
+  {
+    "id": "notify_q",
+    "type": "function",
+    "z": "tab_notify",
+    "name": "delivery enabled?",
+    "func": "if (!env.get('MF_NOTIFY_WEBHOOK_URL')) { node.status({ fill: 'grey', shape: 'ring', text: 'disabled (no MF_NOTIFY_WEBHOOK_URL)' }); return null; }\nnode.status({ fill: 'green', shape: 'dot', text: 'enabled' });\nmsg.query = 'SELECT * FROM mf.pending_deliveries(10)';\nmsg.params = [];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 320,
+    "y": 100,
+    "wires": [
+      [
+        "notify_pg"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "notify_pg",
+    "type": "postgresql",
+    "z": "tab_notify",
+    "name": "mf.pending_deliveries()",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 560,
+    "y": 100,
+    "wires": [
+      [
+        "notify_build"
+      ]
+    ]
+  },
+  {
+    "id": "notify_build",
+    "type": "function",
+    "z": "tab_notify",
+    "name": "format message",
+    "func": "const url = env.get('MF_NOTIFY_WEBHOOK_URL');\nconst fmt = (env.get('MF_NOTIFY_FORMAT') || 'json').toLowerCase();\nconst token = env.get('MF_NOTIFY_BEARER_TOKEN');\nconst oneLine = s => String(s == null ? '' : s).replace(/[\\r\\n]+/g, ' ');\n\nreturn [(msg.payload || []).map(r => {\n    const m = { notification_id: r.id, method: 'POST', url, headers: {} };\n    if (token) m.headers.authorization = 'Bearer ' + token;\n    if (fmt === 'slack') {                    // Slack / Mattermost incoming webhook\n        m.headers['content-type'] = 'application/json';\n        m.payload = { text: r.text };\n    } else if (fmt === 'discord') {\n        m.headers['content-type'] = 'application/json';\n        m.payload = { content: r.text };\n    } else if (fmt === 'text') {              // ntfy.sh and similar: plain-text body\n        m.headers['content-type'] = 'text/plain; charset=utf-8';\n        m.headers.title = oneLine(r.title);\n        m.payload = r.text;\n    } else {                                  // json: full event, for Zapier / Make / your own endpoint\n        m.headers['content-type'] = 'application/json';\n        m.payload = {\n            source: 'manufaction', event: r.kind, severity: r.severity, site: r.site_code,\n            asset: r.asset_code, title: r.title, message: r.text,\n            work_request: r.work_request, reason_code: r.reason_code, occurred_at: r.created_at\n        };\n    }\n    return m;\n})];",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 790,
+    "y": 100,
+    "wires": [
+      [
+        "notify_req"
+      ]
+    ],
+    "info": "One HTTP message per pending notification."
+  },
+  {
+    "id": "notify_req",
+    "type": "http request",
+    "z": "tab_notify",
+    "name": "POST to webhook",
+    "method": "use",
+    "ret": "txt",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 1010,
+    "y": 100,
+    "wires": [
+      [
+        "notify_ok"
+      ]
+    ]
+  },
+  {
+    "id": "notify_ok",
+    "type": "function",
+    "z": "tab_notify",
+    "name": "record result",
+    "func": "const ok = msg.statusCode >= 200 && msg.statusCode < 300;\nif (!ok) node.warn('webhook returned HTTP ' + msg.statusCode + ' for notification ' + msg.notification_id);\nmsg.query = 'SELECT mf.mark_delivery($1, $2, $3)';\nmsg.params = [msg.notification_id, ok, ok ? null : 'HTTP ' + msg.statusCode];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1210,
+    "y": 100,
+    "wires": [
+      [
+        "notify_mark"
+      ]
+    ],
+    "info": ""
+  },
+  {
+    "id": "notify_mark",
+    "type": "postgresql",
+    "z": "tab_notify",
+    "name": "mf.mark_delivery()",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 1410,
+    "y": 100,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "notify_catch",
+    "type": "catch",
+    "z": "tab_notify",
+    "name": "webhook unreachable",
+    "scope": [
+      "notify_req"
+    ],
+    "uncaught": false,
+    "x": 1010,
+    "y": 200,
+    "wires": [
+      [
+        "notify_err"
+      ]
+    ]
+  },
+  {
+    "id": "notify_err",
+    "type": "function",
+    "z": "tab_notify",
+    "name": "record failure",
+    "func": "if (msg.notification_id == null) return null;\n// connection-level failure (DNS, refused, timeout). Keep the message short: never log the URL.\nconst why = String((msg.error && msg.error.message) || 'request failed').replace(/https?:\\/\\/\\S+/g, '[url]').slice(0, 150);\nnode.warn('webhook send failed for notification ' + msg.notification_id + ': ' + why);\nmsg.query = 'SELECT mf.mark_delivery($1, false, $2)';\nmsg.params = [msg.notification_id, why];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1210,
+    "y": 200,
+    "wires": [
+      [
+        "notify_mark"
       ]
     ],
     "info": ""

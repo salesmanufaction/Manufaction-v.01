@@ -65,9 +65,30 @@ docker compose up -d simulator            # picks up the new settings
 ./scripts/demo_fault.sh CNC-001 TOOL_BREAK 45     # choose machine, reason code, seconds
 ```
 
-What the viewer sees when a machine faults: a red alert bar with the reason code, a **work request** raised for Maintenance on-call (`WR-…`), the machine card and downtime tiles updating, and when the machine recovers the request closes and a "back in production" notice appears. In v0.1 the work request is recorded and shown on the dashboard; delivering it by email, SMS or a maintenance system (CMMS) is a connector for v0.2, so say "notified on the dashboard" rather than "emailed" on camera.
+What the viewer sees when a machine faults: a red alert bar with the reason code, a **work request** raised for Maintenance on-call (`WR-…`), the machine card and downtime tiles updating, and when the machine recovers the request closes and a "back in production" notice appears. The work request is always recorded and shown on the dashboard. It is also **sent out** if you configure alert delivery (next section); without that, say "notified on the dashboard" on camera, not "texted" or "emailed".
 
 Demo history is generated deterministically and flagged in the database, so `demo_seed.sh` is safe to re-run. It fills today only: run it more than ~30 minutes after midnight (site time).
+
+## Alert delivery (webhook)
+
+Faults, stops and recoveries can be pushed to where people already are. Set one URL in `.env`; nothing is sent until you do.
+
+| Destination | `MF_NOTIFY_FORMAT` | Notes |
+|---|---|---|
+| Slack, Mattermost | `slack` | Create an incoming webhook, paste its URL |
+| Discord | `discord` | Channel settings → Integrations → Webhooks |
+| Phone push (ntfy.sh) | `text` | URL like `https://ntfy.sh/your-private-topic`; install the ntfy app and subscribe |
+| Email, SMS, Teams, a CMMS, your own endpoint | `json` (default) | Point it at a Zapier or Make "catch hook", or any HTTPS endpoint; the body is the full event (`event`, `severity`, `site`, `asset`, `message`, `work_request`, `reason_code`, `occurred_at`) |
+
+```bash
+# .env
+MF_NOTIFY_WEBHOOK_URL=https://hooks.slack.com/services/...     # a secret: keep it in .env only
+MF_NOTIFY_FORMAT=slack
+docker compose up -d nodered
+./scripts/notify_test.sh                                       # sends a test alert and confirms delivery
+```
+
+Behaviour: each fault sends one message (`FAULT: PRESS-001 - Hydraulic oil over temperature. Work request WR-… sent to Maintenance on-call.`), a stop without a reason sends one, and a recovery sends one. Delivery runs every 5 seconds; a failed send is retried up to 5 times, 15 seconds apart, and anything older than 15 minutes is dropped so switching delivery on never replays old alerts. Sent alerts show a green "sent" on the dashboard. Messages carry plant, asset and reason information only; the webhook URL is never logged. Direct SMTP email is not built in. Use a Zapier or Make hook for email until a customer needs more.
 
 ## Deploying on a cloud VM
 
@@ -98,6 +119,7 @@ Log in with the editor credentials from `setup.sh`. Flows are saved to `nodered/
 | 02 API | REST API v1 (below) |
 | 03 Production Engine | Re-dispatches released orders until the machine acknowledges; daily telemetry purge |
 | 04 Demo ERP | Releases orders through the public API and receives production receipts |
+| 05 Notifications | Sends fault and recovery alerts to a webhook (off until you set `MF_NOTIFY_WEBHOOK_URL`) |
 
 **Secrets rule:** never type a password into a node's credential field. Add an env var to `.env` and `docker-compose.yml` and reference it as `${MY_VAR}`. `flows_cred.json` only holds placeholders, so it is safe to commit.
 
@@ -196,6 +218,7 @@ scripts/smoke_test.sh     end-to-end check
 scripts/demo_fault.sh     trigger a machine fault on cue (demo)
 scripts/demo_seed.sh      pre-load today's history (demo)
 scripts/demo_reset.sh     wipe demo data for a clean take
+scripts/notify_test.sh    send a test alert through your webhook
 postgres/demo/            seed and reset SQL for the demo scripts
 docs/DEMO_SCRIPT.md       storyboard for the demo video
 ```

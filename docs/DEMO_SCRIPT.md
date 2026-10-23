@@ -24,7 +24,7 @@ Goal: they say "that's my problem". Not a tour of technology.
 
 ## Rules for the video
 - Say "simulated plant" at least once. Prospects trust you more when you are upfront.
-- Say "Maintenance is notified on the dashboard", not "emailed" or "texted". Real delivery is a v0.2 connector.
+- Say "Maintenance is notified on the dashboard" unless you set up alert delivery (README: "Alert delivery"). With a webhook on, you can show the alert arriving in Slack or on your phone, and say that. Never claim email or SMS unless that path is actually configured and visible.
 - Don't quote prices on camera; the pilot price is still a hypothesis to test in discovery calls.
 - Keep the talking points about the plant's problem. Leave technology names out.
 

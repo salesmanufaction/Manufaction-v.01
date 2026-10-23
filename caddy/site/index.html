@@ -148,7 +148,7 @@ function render(d) {
   seenNotes = new Set(notes.map(n => n.id));
   $('feed').innerHTML = notes.length ? '<ul class="feed">' + notes.slice(0, 6).map(n => `<li class="${fresh.has(n.id) ? 'new' : ''}">
       <span class="sev ${esc(n.severity)}"></span>
-      <div><div class="t">${esc(n.title)}</div><div class="m">${esc(n.message || '')}</div></div>
+      <div><div class="t">${esc(n.title)}</div><div class="m">${esc(n.message || '')}${n.delivered ? ' · <span class="tag-closed">sent</span>' : ''}</div></div>
       <span class="when">${time(n.created_at)}</span></li>`).join('') + '</ul>'
     : '<p class="empty">No alerts. Everything is running.</p>';
   $('requests').innerHTML = table(d.maintenance_requests || [], [
