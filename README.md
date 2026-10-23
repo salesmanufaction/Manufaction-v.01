@@ -92,6 +92,8 @@ Behaviour: each fault sends one message (`FAULT: PRESS-001 - Hydraulic oil over 
 
 ## Deploying on a cloud VM
 
+Fastest route: see [`deploy/README.md`](deploy/README.md) (one-script setup, lowest-cost VM notes, backups).
+
 1. Create a small Ubuntu VM (1–2 vCPU, 2 GB RAM is plenty) on a **personal** account.
 2. Point a DNS record (e.g. `demo.yourdomain.com`) at it.
 3. Firewall: allow 22, 80, 443 only. Docker-published ports bypass `ufw`, which is why this compose file publishes nothing except Caddy (and the editor on `127.0.0.1`).
