@@ -6,7 +6,7 @@ events for three machines over MQTT, and obeys commands sent back from the cloud
 
 Topics (all under mf/v1/site/{SITE}/asset/{ASSET}/...):
   telemetry  every TELEMETRY_SECONDS   {"timestamp", "asset_id", "signals": {...}, "units": {...}}
-  status     on change                 {"timestamp", "asset_id", "status", "reason_code"?}
+  status     on change + every 15 s               {"timestamp", "asset_id", "status", "reason_code"?}
   event      on occurrence             {"timestamp", "asset_id", "event_type", ...}
   command    subscribed                {"command": "start_order" | "complete_order" | "inject_fault", ...}
 
@@ -257,6 +257,7 @@ class Factory:
         self.client.connect_async(BROKER, PORT, keepalive=30)
         self.client.loop_start()
         last_telemetry = 0.0
+        last_status = 0.0
         while not self.stop.is_set():
             for m in MACHINES.values():
                 self.tick(m)
@@ -266,6 +267,12 @@ class Factory:
                 for m in MACHINES.values():
                     s, u = m.signals()
                     self.publish(m, "telemetry", {"signals": s, "units": u}, qos=0)
+            # Re-announce state every 15 s. Status is otherwise sent only on change, so if the
+            # cloud side was still starting when we connected, it would never learn we are idle.
+            if time.monotonic() - last_status >= 15 and self.client.is_connected():
+                last_status = time.monotonic()
+                for m in MACHINES.values():
+                    self.publish(m, "status", {"status": m.status})
             time.sleep(0.2)
         self.client.loop_stop()
         self.client.disconnect()
