@@ -18,3 +18,5 @@ studio/data/.flows_cred.json.backup
 studio/data/lib/
 studio/data/context/
 studio/data/package*.json
+docker-compose.override.yml
+manufaction-credentials-*.txt
