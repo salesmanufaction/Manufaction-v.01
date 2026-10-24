@@ -40,6 +40,30 @@ AWS (or similar) with managed Postgres and snapshots. The per-customer pattern s
    (its checks assume the demo machines, so expect some failures once you replace them).
 7. **Copy backups off the VM** (see below) and write the VM, domain and credentials location into your customer register.
 
+## Cloudflare setup (domain, website, customer subdomains)
+
+Labels in the Cloudflare dashboard change; treat the menu names as approximate.
+
+**One-time**
+1. Buy `manufaction.com` through Cloudflare Registrar. It becomes a zone in your account with nameservers already set.
+2. Turn on two-factor authentication (authenticator app or hardware key, not SMS) and DNSSEC. This account controls every customer address: do not share the login.
+3. Workers & Pages > create a Pages project from the `manufaction-website` repo. No build command, output directory `/`.
+4. Pages > Custom domains: add `manufaction.com` and `www.manufaction.com` (Cloudflare creates the records and certificate).
+   Add a redirect rule from `www` to the bare domain.
+5. Optional: Email Routing, to forward `sales@manufaction.com` to your Gmail (free; sending as that address needs Gmail "send mail as" or a paid mailbox).
+
+**Per customer**
+1. DNS > add record: type **A**, name `<slug>`, content = the customer VM's IPv4, proxy status **DNS only** (grey cloud).
+2. Wait a minute, run `dig +short <slug>.manufaction.com` (should print the VM IP), then open the URL once so Caddy obtains its certificate.
+3. Confirm with `curl -I https://<slug>.manufaction.com/api/v1/health` (expect 200).
+
+**Rules**
+- No wildcard `*` record: each customer is on a different server.
+- Leave customer records grey while Caddy gets its certificate. Turning the proxy on is optional hardening; if you do, set SSL/TLS to **Full (strict)** (never Flexible, which loops) and test the dashboard first, since it uses WebSockets (untested here).
+- Customer subdomains are public in DNS and in certificate-transparency logs. If customer names are confidential, use neutral slugs such as `c014`. Decide before the first customer; renaming later means new certificates and VM config changes.
+- Keep a register: slug, customer, VM provider and ID, IP, date created, where credentials are stored.
+- Create `demo.manufaction.com` first and run the whole checklist on it before any customer.
+
 ## Day-to-day
 
 | Task | Command |
